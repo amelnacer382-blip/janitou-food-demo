@@ -133,3 +133,144 @@ export interface DeliveryStop {
   status: 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'FAILED';
   deliveryProof?: string;
 }
+
+// ========================================================
+// Phase 2 — Advanced Modules & Automation
+// ========================================================
+
+export interface AdvancedRulesConfig {
+  maxPastaPerWeek: number;
+  allowSameDayFries: boolean;
+  allowSameDayMincedMeat: boolean;
+  saturdayMaxPrepMinutes: number;
+  minIngredientSpacingDays: number;
+  defaultOrderCutoffHour: number;
+  enableDietarySafetyWarnings: boolean;
+  shortageAutoSubstitution: boolean;
+  maxDeliveryRunRadiusKm: number;
+}
+
+export interface ShortageItem {
+  ingredientId: string;
+  ingredientName: string;
+  unit: UnitOfMeasure;
+  currentStock: number;
+  requiredQuantity: number;
+  deficitQuantity: number;
+  suggestedSubstitution?: {
+    ingredientId?: string;
+    name: string;
+    ratio: number;
+    notes: string;
+  };
+  impactedRecipeNames: string[];
+}
+
+export interface ShortageSimulationResult {
+  date: string;
+  serviceTime?: MealServiceTime;
+  hasShortage: boolean;
+  shortagesCount: number;
+  totalDeficitCost: number;
+  shortages: ShortageItem[];
+  impactedOrdersSummary: {
+    totalImpactedOrders: number;
+    corporatePriorityOrders: number;
+    standardOrders: number;
+  };
+  recommendations: string[];
+}
+
+export interface OptimizedDeliveryStop {
+  stopOrder: number;
+  orderId: string;
+  customerName: string;
+  deliveryAddress: string;
+  wilayaOrCommune: string;
+  portions: number;
+  phone: string;
+  estimatedDeliveryWindow: string;
+}
+
+export interface OptimizedRunAssignment {
+  runId: string;
+  runDate: string;
+  serviceTime: MealServiceTime;
+  vehicleId: string;
+  vehicleLabel: string;
+  driverName: string;
+  zoneName: string;
+  totalMealBoxes: number;
+  vehicleCapacity: number;
+  loadPercentage: number;
+  driverCompensationDZD: number;
+  stops: OptimizedDeliveryStop[];
+}
+
+export interface DeliveryOptimizationResult {
+  date: string;
+  serviceTime: MealServiceTime;
+  totalOrders: number;
+  totalMealBoxes: number;
+  assignedVehiclesCount: number;
+  optimizedRuns: OptimizedRunAssignment[];
+  unassignedOrders: { orderId: string; reason: string }[];
+}
+
+export interface CustomReportQuery {
+  title?: string;
+  startDate?: string;
+  endDate?: string;
+  customerId?: string;
+  category?: ComponentCategory;
+  recipeId?: string;
+  status?: OrderStatus;
+}
+
+export interface CustomReportResult {
+  title: string;
+  generatedAt: string;
+  period: { startDate?: string; endDate?: string };
+  summary: {
+    ordersCount: number;
+    totalPortions: number;
+    totalRevenue: number;
+    totalFoodCost: number;
+    grossMargin: number;
+    grossMarginPct: number;
+  };
+  records: Array<{
+    date: string;
+    orderId: string;
+    customerName: string;
+    portions: number;
+    revenue: number;
+    foodCost: number;
+    margin: number;
+    status: string;
+  }>;
+}
+
+export interface ImmutableLedgerEntry {
+  id: string;
+  entryNumber: number;
+  timestamp: string;
+  type: 'INVOICE_ISSUED' | 'PAYMENT_RECEIVED' | 'REFUND_PROCESSED' | 'DISCOUNT_APPLIED';
+  referenceId: string;
+  customerId: string;
+  customerName: string;
+  debit: number;
+  credit: number;
+  balanceAfter: number;
+  notes: string;
+  previousHash: string;
+  currentHash: string;
+}
+
+export interface LedgerVerificationResult {
+  isValid: boolean;
+  totalEntries: number;
+  chainIntact: boolean;
+  lastHash: string;
+  tamperedEntryId?: string;
+}

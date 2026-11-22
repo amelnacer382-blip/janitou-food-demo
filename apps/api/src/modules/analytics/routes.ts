@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { MealServiceTime } from '@janitou/common';
+import { MealServiceTime, type CustomReportQuery } from '@janitou/common';
 import { readJsonBody, sendJson, sendError, checkRoleAccess } from '../common/http.js';
+import { authenticatedStaff } from '../auth/session.js';
 import { janitouStore } from '../../services/store.js';
 
 export async function handleAnalyticsRoutes(
@@ -99,6 +100,33 @@ export async function handleAnalyticsRoutes(
     }
   }
 
+  // Invoice discount — percentage or fixed amount, fully audited.
+  const invoiceDiscountMatch = pathname.match(/^\/api\/v1\/accounting\/invoices\/([^/]+)\/discount$/);
+  if (invoiceDiscountMatch && method === 'PATCH') {
+    const body = await readJsonBody<{ type?: 'PERCENT' | 'FIXED'; value?: number }>(req);
+    if (!body.type || typeof body.value !== 'number') {
+      sendError(res, 400, 'Validation Error', 'type et value sont requis.');
+      return true;
+    }
+    const actor = authenticatedStaff(req);
+    try {
+      const invoice = janitouStore.applyInvoiceDiscount(
+        invoiceDiscountMatch[1],
+        body.type,
+        body.value,
+        actor ? { id: actor.id, name: actor.fullName } : undefined
+      );
+      if (!invoice) {
+        sendError(res, 404, 'Not Found', `Facture '${invoiceDiscountMatch[1]}' introuvable.`);
+        return true;
+      }
+      sendJson(res, 200, { invoice });
+    } catch (error) {
+      sendError(res, 400, 'Validation Error', error instanceof Error ? error.message : 'Remise invalide.');
+    }
+    return true;
+  }
+
   // Customer statement
   const statementMatch = pathname.match(/^\/api\/v1\/accounting\/statements\/([^/]+)$/);
   if (statementMatch && method === 'GET') {
@@ -140,6 +168,47 @@ export async function handleAnalyticsRoutes(
     const date = searchParams.get('date') || undefined;
     const result = janitouStore.generateReport(reportId, date);
     sendJson(res, 200, { report: result });
+    return true;
+  }
+
+  // Phase 2: Custom Dynamic Report Builder (08)
+  if (pathname === '/api/v1/reports/custom-builder' && method === 'POST') {
+    const query = await readJsonBody<CustomReportQuery>(req);
+    const report = janitouStore.buildCustomReport(query);
+    sendJson(res, 200, { report });
+    return true;
+  }
+
+  if (pathname === '/api/v1/reports/custom-builder/csv' && method === 'POST') {
+    const query = await readJsonBody<CustomReportQuery>(req);
+    const csvContent = janitouStore.exportCustomReportCsv(query);
+    res.writeHead(200, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="custom-report.csv"',
+    });
+    res.end(csvContent);
+    return true;
+  }
+
+  // Phase 2: Immutable Accounting Ledger & Cryptographic Verification (06)
+  if (pathname === '/api/v1/accounting/ledger' && method === 'GET') {
+    if (!checkRoleAccess(req, ['ADMIN', 'OPERATIONS_MANAGER'])) {
+      sendError(res, 403, 'Forbidden', 'Accès réservé à la direction financière.');
+      return true;
+    }
+    const limit = parseInt(searchParams.get('limit') || '100', 10);
+    const entries = janitouStore.getLedgerEntries(limit);
+    sendJson(res, 200, { entries, count: entries.length });
+    return true;
+  }
+
+  if (pathname === '/api/v1/accounting/ledger/verify' && method === 'GET') {
+    if (!checkRoleAccess(req, ['ADMIN', 'OPERATIONS_MANAGER'])) {
+      sendError(res, 403, 'Forbidden', 'Accès réservé à la direction financière.');
+      return true;
+    }
+    const verification = janitouStore.verifyLedgerIntegrity();
+    sendJson(res, 200, { verification });
     return true;
   }
 

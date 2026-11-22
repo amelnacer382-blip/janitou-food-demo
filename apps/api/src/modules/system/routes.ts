@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson, sendError, checkRoleAccess } from '../common/http.js';
 import { janitouStore } from '../../services/store.js';
+import { authenticatedStaff, reauthenticate } from '../auth/session.js';
 import { openApiSpec, renderSwaggerHtml } from './openapi.js';
 
 export async function handleSystemRoutes(
@@ -80,27 +81,64 @@ export async function handleSystemRoutes(
     return true;
   }
 
-  // System Backup
+  // System Backup — ADMIN + password re-authentication, fully audited.
   if (pathname === '/api/v1/system/backup' && method === 'GET') {
-    if (!checkRoleAccess(req, ['ADMIN', 'OPERATIONS_MANAGER'])) {
+    const staff = authenticatedStaff(req);
+    if (!staff || !checkRoleAccess(req, ['ADMIN'])) {
       sendError(res, 403, 'Forbidden', 'Opération réservée aux administrateurs.');
       return true;
     }
+    if (!reauthenticate(req, staff)) {
+      sendError(res, 401, 'REAUTH_REQUIRED', 'Confirmez votre mot de passe pour exporter la sauvegarde.');
+      return true;
+    }
     const backup = janitouStore.createDatabaseBackup();
+    janitouStore.recordAuditEntry(
+      { id: staff.id, name: staff.fullName },
+      'EXPORT_BACKUP',
+      'DATABASE',
+      'main',
+      undefined,
+      { timestamp: backup.timestamp, collections: Object.keys(backup.data) }
+    );
     res.writeHead(200, {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
       'Content-Disposition': `attachment; filename="janitou-backup-${new Date().toLocaleDateString('en-CA')}.json"`,
     });
     res.end(JSON.stringify(backup, null, 2));
     return true;
   }
 
-  // System Restore
+  // System Restore — ADMIN + password re-authentication, validated, audited.
   if (pathname === '/api/v1/system/restore' && method === 'POST') {
-    const body = await readJsonBody<{ data: Record<string, unknown> }>(req);
-    const ok = janitouStore.restoreDatabaseFromBackup(body);
+    const staff = authenticatedStaff(req);
+    if (!staff || !checkRoleAccess(req, ['ADMIN'])) {
+      sendError(res, 403, 'Forbidden', 'Opération réservée aux administrateurs.');
+      return true;
+    }
+    if (!reauthenticate(req, staff)) {
+      sendError(res, 401, 'REAUTH_REQUIRED', 'Confirmez votre mot de passe pour restaurer la base.');
+      return true;
+    }
+    let body: unknown;
+    try {
+      body = await readJsonBody(req);
+    } catch {
+      sendError(res, 400, 'Restore Error', 'Corps JSON invalide.');
+      return true;
+    }
+    const ok = await janitouStore.restoreDatabaseFromBackup(body, {
+      id: staff.id,
+      name: staff.fullName,
+    });
     if (!ok) {
-      sendError(res, 400, 'Restore Error', 'Format de sauvegarde invalide.');
+      sendError(
+        res,
+        400,
+        'Restore Error',
+        'Format de sauvegarde invalide ou compte administrateur actif manquant.'
+      );
       return true;
     }
     sendJson(res, 200, { message: 'Restauration complète de la base effectuée avec succès.' });

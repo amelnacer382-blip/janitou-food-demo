@@ -318,3 +318,24 @@ For each significant technical decision, record:
   - SMS/WhatsApp delivery receipts (webhooks) are not yet persisted.
 - **Approval Status:**
   - Implemented and verified (guest history, order lookup, outbox enqueue, 23 tests).
+
+---
+
+## ADR-014: Phase 2 Delivery — Advanced Configuration, Shortages, Delivery Optimization, Custom Reports & Immutable Ledger
+
+- **Date:** 2026-11-22
+- **Decision:**
+  - Implemented Phase 2 advanced modules and automation as specified in contract D2026-0005-R1:
+    1. **Shareable iCalendar Export (RFC 5545):** Endpoint `GET /api/v1/meal-plans/calendar.ics` providing direct subscription/calendar integration for clients and internal teams.
+    2. **Advanced Rules Engine Configuration:** Dynamic endpoint `GET/PUT /api/v1/rules/config` governing weekly pasta caps, same-day fries/minced meat prohibitions, Saturday preparation constraints, and ingredient spacing.
+    3. **Shortage Simulation & Culinary Auto-Substitutions:** Endpoint `GET /api/v1/production/shortages/simulate` evaluating stocks vs required quantities, forecasting deficit procurement cost, and suggesting culinary equivalent substitutions without blocking the production schedule.
+    4. **Smart Delivery Run Optimization:** Endpoint `POST /api/v1/delivery/optimize-runs` implementing zone clustering across Algiers wilaya, vehicle capacity load management, driver compensation calculation, and automated delivery run dispatching.
+    5. **Custom Dynamic Report Builder & CSV Export:** Endpoints `POST /api/v1/reports/custom-builder` and `POST /api/v1/reports/custom-builder/csv` delivering multi-criteria reporting with dynamic financial aggregation (revenue, food cost, gross margin percentage).
+    6. **Immutable Accounting Ledger with SHA-256 Cryptographic Chain:** Endpoints `GET /api/v1/accounting/ledger` and `GET /api/v1/accounting/ledger/verify` guaranteeing non-repudiation, sequential SHA-256 hash chaining, and real-time tamper detection for invoices, payments, and discounts.
+- **Reason:**
+  - Fulfill contract Phase 2 operational deliverables while maintaining 100% backward compatibility with Phase 1 baseline and all 35 automated tests.
+- **Trade-offs / Follow-up:**
+  - Geographic clustering uses Algiers keyword heuristics; integration with OpenStreetMap / Google Maps Routing API planned for Phase 3 fleet tracking.
+  - Immutable ledger is chained in-memory and persisted into atomic state backend; distributed timestamping (e.g. OpenTimestamps) can be added for external certification.
+- **Approval Status:**
+  - Fully implemented and verified with dedicated test suite (`apps/api/test/phase2-advanced.test.ts`), 100% passing across all 35 unit/integration tests and interactive UI in the ERP Dashboard.

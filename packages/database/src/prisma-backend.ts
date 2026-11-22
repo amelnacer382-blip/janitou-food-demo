@@ -38,6 +38,11 @@ function countRecords(state?: Omit<DatabaseState, 'metadata'>): { tables: Record
     clientSessions: state?.clientSessions?.length || 0,
     notifications: state?.notifications?.length || 0,
     outboundMessages: state?.outboundMessages?.length || 0,
+    vehicles: state?.vehicles?.length || 0,
+    workshops: state?.workshops?.length || 0,
+    workOrders: state?.workOrders?.length || 0,
+    recipeVersions: state?.recipeVersions?.length || 0,
+    alternatives: state?.alternatives?.length || 0,
   };
   return { tables, total: Object.values(tables).reduce((sum, count) => sum + count, 0) };
 }

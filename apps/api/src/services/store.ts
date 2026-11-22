@@ -3,6 +3,15 @@ import {
   OrderStatus,
   ComponentCategory,
   UnitOfMeasure,
+  type AdvancedRulesConfig,
+  type ShortageSimulationResult,
+  type ShortageItem,
+  type DeliveryOptimizationResult,
+  type OptimizedRunAssignment,
+  type CustomReportQuery,
+  type CustomReportResult,
+  type ImmutableLedgerEntry,
+  type LedgerVerificationResult,
 } from '@janitou/common';
 import {
   createStateBackend,
@@ -28,6 +37,14 @@ import {
   DbStaffUser,
   DbNotification,
   DbOutboundMessage,
+  DbVehicle,
+  DbWorkshop,
+  DbWorkOrder,
+  DbWorkOrderStep,
+  DbRecipeVersion,
+  DbAlternative,
+  WorkshopStation,
+  AlternativeType,
   StaffRole,
   initialSuppliers,
   initialIngredients,
@@ -37,6 +54,8 @@ import {
   initialOrders,
   initialInvoices,
   initialPayments,
+  initialWorkshops,
+  initialVehicles,
 } from '../data/mock-db.js';
 import { hashPin, normalizePhone } from './pin.js';
 import {
@@ -57,6 +76,76 @@ import {
   type SimpleOrderView,
   type SimpleSettings,
 } from '../data/simple-demo.js';
+
+const RESTORABLE_COLLECTIONS = [
+  'suppliers',
+  'ingredients',
+  'recipes',
+  'customers',
+  'mealPlans',
+  'orders',
+  'pendingOrders',
+  'productionBatches',
+  'purchaseOrders',
+  'deliveryRuns',
+  'subscriptions',
+  'kdsBatches',
+  'invoices',
+  'payments',
+  'auditLogs',
+  'staffUsers',
+  'notifications',
+  'outboundMessages',
+  'vehicles',
+  'workshops',
+  'workOrders',
+  'recipeVersions',
+  'alternatives',
+] as const;
+
+type RestorableCollection = (typeof RESTORABLE_COLLECTIONS)[number];
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+const WORKSHOP_STATIONS: Record<string, true> = {
+  CHAUD: true,
+  FROID: true,
+  PATISSERIE: true,
+  CONDITIONNEMENT: true,
+};
+
+const ALTERNATIVE_TYPES: Record<string, true> = {
+  PERMANENT: true,
+  LIMITED: true,
+  RESERVATION: true,
+};
+
+function isWorkshopStation(value: unknown): value is WorkshopStation {
+  return typeof value === 'string' && WORKSHOP_STATIONS[value] === true;
+}
+
+function isAlternativeType(value: unknown): value is AlternativeType {
+  return typeof value === 'string' && ALTERNATIVE_TYPES[value] === true;
+}
+
+function isValidStaffSnapshot(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  if (value.length === 0) return true;
+  const users = value.filter(isPlainObject);
+  if (users.length !== value.length) return false;
+  const complete = users.every(
+    (user) =>
+      typeof user.id === 'string' &&
+      typeof user.email === 'string' &&
+      typeof user.role === 'string' &&
+      typeof user.passwordSalt === 'string' &&
+      typeof user.passwordHash === 'string'
+  );
+  if (!complete) return false;
+  return users.some((user) => user.role === 'ADMIN' && user.isActive !== false);
+}
 
 export interface ProductionRequirement {
   recipeId: string;
@@ -90,6 +179,43 @@ export interface ProductionPlanSummary {
   totalEstimatedCost: number;
   deficitCost: number;
   hasDeficit: boolean;
+  packagingRequirements: { type: string; quantity: number }[];
+}
+
+export interface ProductionVarianceLine {
+  recipeId: string;
+  recipeName: string;
+  station: WorkshopStation;
+  plannedPortions: number;
+  producedPortions: number;
+  surplus: number;
+  shortage: number;
+  proposal: string;
+}
+
+export interface ProductionVariance {
+  date: string;
+  serviceTime?: MealServiceTime;
+  totalPlanned: number;
+  totalProduced: number;
+  totalSurplus: number;
+  totalShortage: number;
+  lines: ProductionVarianceLine[];
+}
+
+export interface MenuProposalDay {
+  date: string;
+  dayName: string;
+  lunch?: DbMealPlan;
+  dinner?: DbMealPlan;
+}
+
+export interface MenuProposal {
+  startDate: string;
+  generatedAt: string;
+  days: MenuProposalDay[];
+  violations: MenuRuleViolation[];
+  isValid: boolean;
 }
 
 export interface MealBoxLabel {
@@ -224,6 +350,18 @@ function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
+export const DEFAULT_ADVANCED_RULES: AdvancedRulesConfig = {
+  maxPastaPerWeek: 1,
+  allowSameDayFries: false,
+  allowSameDayMincedMeat: false,
+  saturdayMaxPrepMinutes: 45,
+  minIngredientSpacingDays: 2,
+  defaultOrderCutoffHour: 18,
+  enableDietarySafetyWarnings: true,
+  shortageAutoSubstitution: true,
+  maxDeliveryRunRadiusKm: 25,
+};
+
 export class JanitouStore {
   public suppliers: DbSupplier[] = [];
   public ingredients: DbIngredient[] = [];
@@ -237,6 +375,11 @@ export class JanitouStore {
   public deliveryRuns: DbDeliveryRun[] = [];
   public subscriptions: CustomerSubscription[] = [];
   public kdsBatches: KdsBatch[] = [];
+  public vehicles: DbVehicle[] = [];
+  public workshops: DbWorkshop[] = [];
+  public workOrders: DbWorkOrder[] = [];
+  public recipeVersions: DbRecipeVersion[] = [];
+  public alternatives: DbAlternative[] = [];
   public invoices: DbInvoice[] = [];
   public payments: DbPayment[] = [];
   public auditLogs: AuditLogEntry[] = [];
@@ -245,6 +388,8 @@ export class JanitouStore {
   public clientSessions: ClientSessionRecord[] = [];
   public notifications: DbNotification[] = [];
   public outboundMessages: DbOutboundMessage[] = [];
+  public advancedRules: AdvancedRulesConfig = { ...DEFAULT_ADVANCED_RULES };
+  public ledgerEntries: ImmutableLedgerEntry[] = [];
   public settings: SimpleSettings = this.cloneSettings(DEFAULT_SIMPLE_SETTINGS);
   private db: StateBackend;
   private isEphemeral: boolean;
@@ -276,6 +421,11 @@ export class JanitouStore {
         this.deliveryRuns = (savedState.deliveryRuns as DbDeliveryRun[]) || [];
         this.subscriptions = (savedState.subscriptions as CustomerSubscription[]) || [];
         this.kdsBatches = (savedState.kdsBatches as KdsBatch[]) || [];
+        this.vehicles = (savedState.vehicles as DbVehicle[]) || [];
+        this.workshops = (savedState.workshops as DbWorkshop[]) || [];
+        this.workOrders = (savedState.workOrders as DbWorkOrder[]) || [];
+        this.recipeVersions = (savedState.recipeVersions as DbRecipeVersion[]) || [];
+        this.alternatives = (savedState.alternatives as DbAlternative[]) || [];
         this.invoices = (savedState.invoices as DbInvoice[]) || [];
         this.payments = (savedState.payments as DbPayment[]) || [];
         this.auditLogs = (savedState.auditLogs as AuditLogEntry[]) || [];
@@ -287,13 +437,13 @@ export class JanitouStore {
         this.settings = this.normalizeSettings(savedState.settings);
         this.pruneSessions();
         this.pruneAuditLogs();
-        if (this.ensureSimpleDemo()) await this.persistNow();
+        if (this.ensureSimpleDemo()) await this.enqueuePersist();
         return;
       }
     }
 
     this.ensureSimpleDemo();
-    if (!this.isEphemeral) await this.persistNow();
+    if (!this.isEphemeral) await this.enqueuePersist();
   }
 
   /** Resolves once the initial state has been loaded from the backend. */
@@ -335,6 +485,11 @@ export class JanitouStore {
       deliveryRuns: this.deliveryRuns,
       subscriptions: this.subscriptions,
       kdsBatches: this.kdsBatches,
+      vehicles: this.vehicles,
+      workshops: this.workshops,
+      workOrders: this.workOrders,
+      recipeVersions: this.recipeVersions,
+      alternatives: this.alternatives,
       invoices: this.invoices,
       payments: this.payments,
       auditLogs: this.auditLogs,
@@ -347,20 +502,27 @@ export class JanitouStore {
     };
   }
 
-  public persist(): void {
-    if (this.isEphemeral) return;
-    const state = this.snapshotState();
-    this.writeChain = this.writeChain
-      .then(() => this.db.persistState(state))
-      .catch((error) => {
-        console.error('[STORE] Persist failed:', error);
-      });
+  /**
+   * Every durable write goes through one chain. Snapshots are taken when the
+   * write executes, so a session created by `persistNow()` can never be
+   * overwritten by an older snapshot queued before it.
+   */
+  private enqueuePersist(): Promise<void> {
+    if (this.isEphemeral) return Promise.resolve();
+    const run = this.writeChain.then(() => this.db.persistState(this.snapshotState()));
+    this.writeChain = run.catch((error) => {
+      console.error('[STORE] Persist failed:', error);
+    });
+    return run;
   }
 
-  private async persistNow(): Promise<void> {
-    if (this.isEphemeral) return;
-    await this.db.persistState(this.snapshotState());
+  public persist(): void {
+    void this.enqueuePersist().catch(() => {
+      // The chain has already logged the failure; callers stay non-blocking.
+    });
   }
+
+
 
   public getDatabaseHealth(): DatabaseHealth {
     return this.db.getHealth(this.snapshotState());
@@ -399,9 +561,16 @@ export class JanitouStore {
       },
     ];
     this.kdsBatches = [];
+    this.vehicles = JSON.parse(JSON.stringify(initialVehicles));
+    this.workshops = JSON.parse(JSON.stringify(initialWorkshops));
+    this.workOrders = [];
+    this.recipeVersions = [];
+    this.alternatives = [];
     this.invoices = JSON.parse(JSON.stringify(initialInvoices));
     this.payments = JSON.parse(JSON.stringify(initialPayments));
     this.auditLogs = [];
+    this.advancedRules = { ...DEFAULT_ADVANCED_RULES };
+    this.ledgerEntries = [];
     this.settings = this.cloneSettings(DEFAULT_SIMPLE_SETTINGS);
     this.staffSessions = [];
     this.clientSessions = [];
@@ -541,6 +710,9 @@ export class JanitouStore {
       family: data.family?.trim() || undefined,
       flags: data.flags,
       mainIngredient: data.mainIngredient?.trim() || undefined,
+      price: data.price,
+      isActive: data.isActive ?? true,
+      version: 1,
       id: `rec-${Date.now()}`,
     };
     this.recipes.push(recipe);
@@ -611,6 +783,13 @@ export class JanitouStore {
             (date): date is string => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
           )
         : base.closedDates,
+      collectivePackagingSize:
+        typeof input.collectivePackagingSize === 'number' &&
+        Number.isInteger(input.collectivePackagingSize) &&
+        input.collectivePackagingSize >= 1 &&
+        input.collectivePackagingSize <= 100
+          ? input.collectivePackagingSize
+          : base.collectivePackagingSize,
       deadlineOverrides:
         input.deadlineOverrides && typeof input.deadlineOverrides === 'object'
           ? Object.fromEntries(
@@ -663,6 +842,15 @@ export class JanitouStore {
 
     if (this.staffUsers.length === 0) {
       this.seedStaffUsers();
+      changed = true;
+    }
+
+    if (this.workshops.length === 0) {
+      this.workshops = this.cloneSnapshot(initialWorkshops);
+      changed = true;
+    }
+    if (this.vehicles.length === 0) {
+      this.vehicles = this.cloneSnapshot(initialVehicles);
       changed = true;
     }
 
@@ -968,8 +1156,8 @@ export class JanitouStore {
     deliveryAddress: string;
     wilaya?: string;
     commune?: string;
-    pinSalt: string;
-    pinHash: string;
+    pinSalt?: string;
+    pinHash?: string;
     companyName?: string;
     email?: string;
     active?: boolean;
@@ -990,8 +1178,8 @@ export class JanitouStore {
       dietaryPreferences: [],
       status: 'ACTIVE',
       accountStatus: data.active ? 'ACTIVE' : 'PENDING',
-      pinSalt: data.pinSalt,
-      pinHash: data.pinHash,
+      pinSalt: data.pinSalt || '',
+      pinHash: data.pinHash || '',
       registeredAt: new Date().toISOString(),
       accountBalance: 0,
       whatsAppLink: `https://wa.me/${normalizePhone(data.phone)}`,
@@ -1305,7 +1493,7 @@ export class JanitouStore {
       userId,
       expiresAt: new Date(Date.now() + STAFF_SESSION_TTL_MS).toISOString(),
     });
-    await this.persistNow();
+    await this.enqueuePersist();
     return token;
   }
 
@@ -1317,7 +1505,7 @@ export class JanitouStore {
   public async deleteStaffSession(token: string): Promise<void> {
     const tokenHash = sha256(token);
     this.staffSessions = this.staffSessions.filter((session) => session.tokenHash !== tokenHash);
-    await this.persistNow();
+    await this.enqueuePersist();
   }
 
   public async createClientSession(customerId: string): Promise<string> {
@@ -1328,7 +1516,7 @@ export class JanitouStore {
       customerId,
       expiresAt: new Date(Date.now() + CLIENT_SESSION_TTL_MS).toISOString(),
     });
-    await this.persistNow();
+    await this.enqueuePersist();
     return token;
   }
 
@@ -1340,7 +1528,7 @@ export class JanitouStore {
   public async deleteClientSession(token: string): Promise<void> {
     const tokenHash = sha256(token);
     this.clientSessions = this.clientSessions.filter((session) => session.tokenHash !== tokenHash);
-    await this.persistNow();
+    await this.enqueuePersist();
   }
 
   public getClientAccounts(): DbCustomer[] {
@@ -1560,6 +1748,8 @@ export class JanitouStore {
   private issueOrderInvoice(customer: DbCustomer, order: DbOrder): void {
     if (order.totalPrice <= 0) return;
     const date = new Date().toISOString().slice(0, 10);
+    const priced = this.applyCustomerDiscount(customer, order.totalPrice);
+    order.totalPrice = priced.total;
     const invoice: DbInvoice = {
       id: `inv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       invoiceNumber: this.nextDocumentNumber('INV', date),
@@ -1567,7 +1757,11 @@ export class JanitouStore {
       orderIds: [order.id],
       issueDate: date,
       dueDate: order.deliveryDate,
-      totalAmount: order.totalPrice,
+      subtotal: priced.subtotal,
+      discountType: priced.discountAmount > 0 ? 'PERCENT' : undefined,
+      discountValue: priced.discountAmount > 0 ? customer.discountPercent : undefined,
+      discountAmount: priced.discountAmount,
+      totalAmount: priced.total,
       paidAmount: 0,
       status: 'ISSUED',
     };
@@ -1600,17 +1794,23 @@ export class JanitouStore {
       (entry) => entry.id === order.invoiceId || entry.orderIds.includes(order.id)
     );
     if (!invoice) return;
+    const priced = this.applyCustomerDiscount(customer, newTotal);
     const previousTotal = invoice.totalAmount;
-    if (previousTotal === newTotal) return;
+    if (previousTotal === priced.total) return;
+
+    invoice.subtotal = priced.subtotal;
+    invoice.discountType = priced.discountAmount > 0 ? 'PERCENT' : undefined;
+    invoice.discountValue = priced.discountAmount > 0 ? customer.discountPercent : undefined;
+    invoice.discountAmount = priced.discountAmount;
 
     if (invoice.status === 'PAID' || order.isPaid) {
-      const delta = newTotal - previousTotal;
+      const delta = priced.total - previousTotal;
       if (delta > 0 && customer.accountBalance < delta) {
         throw new Error('INSUFFICIENT_BALANCE');
       }
       customer.accountBalance = Math.round((customer.accountBalance - delta) * 100) / 100;
-      invoice.totalAmount = newTotal;
-      invoice.paidAmount = newTotal;
+      invoice.totalAmount = priced.total;
+      invoice.paidAmount = priced.total;
       order.isPaid = true;
       this.payments.push({
         id: `pay-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -1623,7 +1823,7 @@ export class JanitouStore {
         notes: `Ajustement ${order.orderNumber}`,
       });
     } else {
-      invoice.totalAmount = newTotal;
+      invoice.totalAmount = priced.total;
     }
   }
 
@@ -1713,6 +1913,7 @@ export class JanitouStore {
       alternatives: { dishId: string; portions: number }[];
       extras: { name: string; quantity: number }[];
     },
+    customerId = '',
     allowEmpty = false
   ): {
     items: DbOrderItem[];
@@ -1788,7 +1989,8 @@ export class JanitouStore {
       if (!recipe || recipe.isActive === false || mainDishIds.has(recipe.id)) {
         throw new Error('ALTERNATIVE_UNAVAILABLE');
       }
-      const unitPrice = recipe.price ?? this.settings.lunchPrice;
+      const alternativePrice = this.resolveAlternativePrice(recipe.id, customerId, portions);
+      const unitPrice = alternativePrice ?? recipe.price ?? this.settings.lunchPrice;
       items.push({
         id: `item-${Date.now()}-${items.length}`,
         recipeId: recipe.id,
@@ -1845,7 +2047,7 @@ export class JanitouStore {
     if (!day || (!day.lunch && !day.dinner)) throw new Error('NO_MENU');
     if (day.closed && !input.bypassCutoff) throw new Error('ORDER_CLOSED');
 
-    const priced = this.priceClientOrder(day, input, input.allowEmpty);
+    const priced = this.priceClientOrder(day, input, input.customer.id, input.allowEmpty);
     const zeroOrder = priced.mealsCount === 0 && priced.items.length === 0;
     const order: DbOrder = {
       id: `ord-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -1872,9 +2074,11 @@ export class JanitouStore {
       orderType:
         input.source === 'AUTOMATIC'
           ? 'WEEKLY'
-          : customer.companyName
-            ? 'CORPORATE'
-            : 'INDIVIDUAL',
+          : customer.isSubsidiary
+            ? 'SUBSIDIARY'
+            : customer.subscriptionType === 'CORPORATE' || Boolean(customer.companyName)
+              ? 'CORPORATE'
+              : 'INDIVIDUAL',
       supplementsCost: priced.extras.reduce(
         (sum, extra) => sum + extra.quantity * extra.unitPrice,
         0
@@ -1884,6 +2088,7 @@ export class JanitouStore {
     };
     this.orders.push(order);
     if (!zeroOrder) {
+      this.consumeAlternatives(priced.items, customer.id);
       this.issueOrderInvoice(customer, order);
       this.notify(
         'CLIENT',
@@ -1987,7 +2192,8 @@ export class JanitouStore {
     let itemsTotal = 0;
     for (const [dishId, portions] of merged) {
       const recipe = this.getRecipeById(dishId)!;
-      const unitPrice = recipe.price ?? this.settings.lunchPrice;
+      const alternativePrice = this.resolveAlternativePrice(recipe.id, customer.id, portions);
+      const unitPrice = alternativePrice ?? recipe.price ?? this.settings.lunchPrice;
       items.push({
         id: `item-${Date.now()}-${items.length}`,
         recipeId: recipe.id,
@@ -2045,11 +2251,16 @@ export class JanitouStore {
       source: 'CLIENT',
       orderMode: 'CATALOGUE',
       createdAt: new Date().toISOString(),
-      orderType: customer.companyName ? 'CORPORATE' : 'INDIVIDUAL',
+      orderType: customer.isSubsidiary
+        ? 'SUBSIDIARY'
+        : customer.subscriptionType === 'CORPORATE' || Boolean(customer.companyName)
+          ? 'CORPORATE'
+          : 'INDIVIDUAL',
       supplementsCost: extrasTotal,
       totalPrice,
       isPaid: false,
     };
+    this.consumeAlternatives(items, customer.id);
     if (input.pending) {
       this.pendingOrders.push(order);
     } else {
@@ -2203,7 +2414,7 @@ export class JanitouStore {
 
     const customer = this.getCustomerById(customerId);
     if (!customer) throw new Error('ACCOUNT_NOT_FOUND');
-    const priced = this.priceClientOrder(day, input);
+    const priced = this.priceClientOrder(day, input, customerId);
     this.adjustOrderInvoice(customer, order, priced.totalPrice);
     order.items = priced.items;
     order.extras = priced.extras;
@@ -2585,6 +2796,12 @@ export class JanitouStore {
     }
 
     const totalMealPortions = recipes.reduce((sum, r) => sum + r.totalPortions, 0);
+    const collectiveSize = this.settings.collectivePackagingSize || 10;
+    const packagingRequirements = [
+      { type: 'Barquettes Kraft 750ml Individuelles', quantity: totalMealPortions },
+      { type: 'Couvercles Transparents Écologiques', quantity: totalMealPortions },
+      { type: 'Bacs Collectifs de Transport', quantity: Math.ceil(totalMealPortions / collectiveSize) },
+    ];
 
     return {
       date: targetDate,
@@ -2596,6 +2813,7 @@ export class JanitouStore {
       totalEstimatedCost,
       deficitCost,
       hasDeficit: deficitCost > 0,
+      packagingRequirements,
     };
   }
 
@@ -2664,6 +2882,933 @@ export class JanitouStore {
   }
 
   // ==========================================
+  // Workshops, Work Orders & Production Variance
+  // ==========================================
+  public getWorkshops(): DbWorkshop[] {
+    return this.workshops;
+  }
+
+  private stationForRecipe(recipe: DbRecipe): WorkshopStation {
+    if (recipe.category === ComponentCategory.DESSERT) return 'PATISSERIE';
+    if (
+      recipe.category === ComponentCategory.STARTER ||
+      recipe.category === ComponentCategory.SIDE_DISH ||
+      recipe.category === ComponentCategory.BEVERAGE ||
+      recipe.category === ComponentCategory.BREAD
+    ) {
+      return 'FROID';
+    }
+    return 'CHAUD';
+  }
+
+  private workshopLoad(
+    workshopId: string,
+    date: string,
+    serviceTime: MealServiceTime,
+    excludeWorkOrderId?: string
+  ): number {
+    return this.workOrders
+      .filter(
+        (order) =>
+          order.workshopId === workshopId &&
+          order.date === date &&
+          order.serviceTime === serviceTime &&
+          order.id !== excludeWorkOrderId
+      )
+      .reduce((sum, order) => sum + order.plannedPortions, 0);
+  }
+
+  private pickWorkshop(
+    station: WorkshopStation,
+    date: string,
+    serviceTime: MealServiceTime,
+    plannedPortions: number
+  ): DbWorkshop | undefined {
+    const candidates = this.workshops
+      .filter((workshop) => workshop.isActive && workshop.station === station)
+      .sort((left, right) => left.capacityPortions - right.capacityPortions);
+    return candidates.find(
+      (workshop) =>
+        this.workshopLoad(workshop.id, date, serviceTime) + plannedPortions <=
+        workshop.capacityPortions
+    );
+  }
+
+  private assertWorkshopCapacity(workOrder: DbWorkOrder): void {
+    if (!workOrder.workshopId) return;
+    const workshop = this.workshops.find((entry) => entry.id === workOrder.workshopId);
+    if (!workshop) throw new Error('WORKSHOP_NOT_FOUND');
+    if (workshop.station !== workOrder.station) throw new Error('WORKSHOP_STATION_MISMATCH');
+    const load =
+      this.workshopLoad(workOrder.workshopId, workOrder.date, workOrder.serviceTime, workOrder.id) +
+      workOrder.plannedPortions;
+    if (load > workshop.capacityPortions) throw new Error('WORKSHOP_CAPACITY_EXCEEDED');
+  }
+
+  public createWorkshop(
+    data: { name: string; station: WorkshopStation; capacityPortions: number; notes?: string },
+    actor?: { id: string; name: string }
+  ): DbWorkshop {
+    if (!isWorkshopStation(data.station)) throw new Error('INVALID_WORKSHOP_STATION');
+    if (!Number.isInteger(data.capacityPortions) || data.capacityPortions <= 0) {
+      throw new Error('INVALID_WORKSHOP_CAPACITY');
+    }
+    const workshop: DbWorkshop = {
+      id: `workshop-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: data.name.trim(),
+      station: data.station,
+      capacityPortions: data.capacityPortions,
+      isActive: true,
+      notes: data.notes?.trim(),
+    };
+    this.workshops.push(workshop);
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'Système',
+      action: 'CREATE_WORKSHOP',
+      entityType: 'WORKSHOP',
+      entityId: workshop.id,
+      afterSnapshot: workshop,
+    });
+    this.persist();
+    return workshop;
+  }
+
+  public updateWorkshop(
+    workshopId: string,
+    patch: {
+      name?: string;
+      station?: WorkshopStation;
+      capacityPortions?: number;
+      isActive?: boolean;
+      notes?: string;
+    },
+    actor?: { id: string; name: string }
+  ): DbWorkshop | undefined {
+    const workshop = this.workshops.find((entry) => entry.id === workshopId);
+    if (!workshop) return undefined;
+    const before = this.cloneSnapshot(workshop);
+    if (patch.station !== undefined) {
+      if (!isWorkshopStation(patch.station)) throw new Error('INVALID_WORKSHOP_STATION');
+      workshop.station = patch.station;
+    }
+    if (patch.capacityPortions !== undefined) {
+      if (!Number.isInteger(patch.capacityPortions) || patch.capacityPortions <= 0) {
+        throw new Error('INVALID_WORKSHOP_CAPACITY');
+      }
+      workshop.capacityPortions = patch.capacityPortions;
+    }
+    if (patch.name !== undefined) workshop.name = patch.name.trim();
+    if (patch.isActive !== undefined) workshop.isActive = patch.isActive;
+    if (patch.notes !== undefined) workshop.notes = patch.notes.trim();
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'Système',
+      action: 'UPDATE_WORKSHOP',
+      entityType: 'WORKSHOP',
+      entityId: workshop.id,
+      beforeSnapshot: before,
+      afterSnapshot: this.cloneSnapshot(workshop),
+    });
+    this.persist();
+    return workshop;
+  }
+
+  public getWorkOrders(date?: string, serviceTime?: MealServiceTime): DbWorkOrder[] {
+    return this.workOrders.filter(
+      (order) =>
+        (date ? order.date === date : true) &&
+        (serviceTime ? order.serviceTime === serviceTime : true)
+    );
+  }
+
+  /**
+   * Creates (or refreshes) one work order per recipe and service from the
+   * validated production plan. The workshop is chosen by station and remaining
+   * capacity; when no workshop fits, the order stays unassigned and carries a
+   * warning instead of silently overbooking the atelier.
+   */
+  public generateWorkOrders(date: string, serviceTime?: MealServiceTime): DbWorkOrder[] {
+    const services = serviceTime ? [serviceTime] : [MealServiceTime.LUNCH, MealServiceTime.DINNER];
+    const created: DbWorkOrder[] = [];
+    let changed = false;
+
+    for (const service of services) {
+      const plan = this.calculateProductionNeeds(date, service);
+      for (const requirement of plan.recipes) {
+        const recipe = this.getRecipeById(requirement.recipeId);
+        if (!recipe) continue;
+        const existing = this.workOrders.find(
+          (order) =>
+            order.date === date &&
+            order.serviceTime === service &&
+            order.recipeId === requirement.recipeId
+        );
+        if (existing) {
+          if (existing.plannedPortions !== requirement.totalPortions) {
+            existing.plannedPortions = requirement.totalPortions;
+            existing.updatedAt = new Date().toISOString();
+            changed = true;
+          }
+          continue;
+        }
+        const alternativeStation = this.alternatives.find(
+          (alternative) => alternative.recipeId === requirement.recipeId && alternative.station
+        )?.station;
+        const station = alternativeStation ?? this.stationForRecipe(recipe);
+        const workshop = this.pickWorkshop(station, date, service, requirement.totalPortions);
+        const now = new Date().toISOString();
+        const steps: DbWorkOrderStep[] = [
+          { name: 'Préparation', done: false },
+          { name: 'Production / cuisson', done: false },
+          { name: 'Conditionnement', done: false },
+          { name: 'Contrôle qualité', done: false },
+        ];
+        const workOrder: DbWorkOrder = {
+          id: `wo-${date.replace(/-/g, '')}-${service}-${requirement.recipeId}`,
+          date,
+          serviceTime: service,
+          recipeId: requirement.recipeId,
+          recipeName: requirement.recipeName,
+          station,
+          workshopId: workshop?.id,
+          plannedPortions: requirement.totalPortions,
+          producedPortions: 0,
+          status: 'PLANNED',
+          steps,
+          notes: workshop
+            ? undefined
+            : `Capacité atelier insuffisante pour ${requirement.totalPortions} portions (${station}).`,
+          createdAt: now,
+          updatedAt: now,
+        };
+        this.workOrders.push(workOrder);
+        created.push(workOrder);
+      }
+    }
+
+    if (created.length > 0 || changed) {
+      this.auditLogs.unshift({
+        id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        timestamp: new Date().toISOString(),
+        userId: 'system',
+        userName: 'Planification',
+        action: 'GENERATE_WORK_ORDERS',
+        entityType: 'WORK_ORDER',
+        entityId: date,
+        afterSnapshot: { date, serviceTime, created: created.length },
+      });
+      this.persist();
+    }
+    return created;
+  }
+
+  public updateWorkOrder(
+    workOrderId: string,
+    patch: {
+      plannedPortions?: number;
+      producedPortions?: number;
+      status?: DbWorkOrder['status'];
+      steps?: DbWorkOrderStep[];
+      notes?: string;
+      workshopId?: string | null;
+    },
+    actor?: { id: string; name: string }
+  ): DbWorkOrder | undefined {
+    const workOrder = this.workOrders.find((entry) => entry.id === workOrderId);
+    if (!workOrder) return undefined;
+    const before = this.cloneSnapshot(workOrder);
+    // Mutate a clone so a rejected capacity check leaves no partial update.
+    const next = this.cloneSnapshot(workOrder);
+
+    if (patch.workshopId !== undefined) {
+      if (patch.workshopId === null) {
+        next.workshopId = undefined;
+      } else {
+        const workshop = this.workshops.find((entry) => entry.id === patch.workshopId);
+        if (!workshop) throw new Error('WORKSHOP_NOT_FOUND');
+        next.workshopId = workshop.id;
+      }
+    }
+    if (patch.plannedPortions !== undefined) {
+      if (!Number.isInteger(patch.plannedPortions) || patch.plannedPortions < 0) {
+        throw new Error('INVALID_PLANNED_PORTIONS');
+      }
+      next.plannedPortions = patch.plannedPortions;
+    }
+    if (patch.producedPortions !== undefined) {
+      if (!Number.isInteger(patch.producedPortions) || patch.producedPortions < 0) {
+        throw new Error('INVALID_PRODUCED_PORTIONS');
+      }
+      next.producedPortions = patch.producedPortions;
+    }
+    if (next.workshopId) this.assertWorkshopCapacity(next);
+    if (patch.steps !== undefined) {
+      if (!Array.isArray(patch.steps) || patch.steps.length === 0) {
+        throw new Error('INVALID_WORK_ORDER_STEPS');
+      }
+      next.steps = patch.steps.map((step) => ({
+        name: String(step.name || '').slice(0, 80),
+        done: Boolean(step.done),
+        doneAt: step.done ? step.doneAt || new Date().toISOString() : undefined,
+      }));
+    }
+    if (patch.notes !== undefined) next.notes = patch.notes.trim();
+    if (patch.status !== undefined) {
+      if (!['PLANNED', 'IN_PROGRESS', 'COMPLETED'].includes(patch.status)) {
+        throw new Error('INVALID_WORK_ORDER_STATUS');
+      }
+      next.status = patch.status;
+    } else {
+      const allStepsDone = next.steps.every((step) => step.done);
+      if (allStepsDone && next.producedPortions >= next.plannedPortions) {
+        next.status = 'COMPLETED';
+      } else if (next.producedPortions > 0 || next.steps.some((step) => step.done)) {
+        next.status = 'IN_PROGRESS';
+      }
+    }
+    next.updatedAt = new Date().toISOString();
+    Object.assign(workOrder, next);
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'Système',
+      action: 'UPDATE_WORK_ORDER',
+      entityType: 'WORK_ORDER',
+      entityId: workOrder.id,
+      beforeSnapshot: before,
+      afterSnapshot: this.cloneSnapshot(workOrder),
+    });
+    this.persist();
+    return workOrder;
+  }
+
+  public getProductionVariance(date: string, serviceTime?: MealServiceTime): ProductionVariance {
+    const services = serviceTime ? [serviceTime] : [MealServiceTime.LUNCH, MealServiceTime.DINNER];
+    const lines: ProductionVarianceLine[] = [];
+
+    for (const service of services) {
+      const plan = this.calculateProductionNeeds(date, service);
+      for (const requirement of plan.recipes) {
+        const recipe = this.getRecipeById(requirement.recipeId);
+        const station = recipe ? this.stationForRecipe(recipe) : 'CONDITIONNEMENT';
+        const orders = this.workOrders.filter(
+          (order) =>
+            order.date === date &&
+            order.serviceTime === service &&
+            order.recipeId === requirement.recipeId
+        );
+        const plannedPortions =
+          orders.length > 0
+            ? orders.reduce((sum, order) => sum + order.plannedPortions, 0)
+            : requirement.totalPortions;
+        const producedPortions = orders.reduce((sum, order) => sum + order.producedPortions, 0);
+        const surplus = Math.max(0, producedPortions - plannedPortions);
+        const shortage = Math.max(0, plannedPortions - producedPortions);
+        lines.push({
+          recipeId: requirement.recipeId,
+          recipeName: requirement.recipeName,
+          station,
+          plannedPortions,
+          producedPortions,
+          surplus,
+          shortage,
+          proposal:
+            shortage > 0
+              ? `Produire ${shortage} portion(s) supplémentaire(s) ou réaffecter un atelier.`
+              : surplus > 0
+                ? `Surplus de ${surplus} portion(s) : proposer au personnel ou réduire la prochaine production.`
+                : 'Production conforme au prévu.',
+        });
+      }
+    }
+
+    return {
+      date,
+      serviceTime,
+      totalPlanned: lines.reduce((sum, line) => sum + line.plannedPortions, 0),
+      totalProduced: lines.reduce((sum, line) => sum + line.producedPortions, 0),
+      totalSurplus: lines.reduce((sum, line) => sum + line.surplus, 0),
+      totalShortage: lines.reduce((sum, line) => sum + line.shortage, 0),
+      lines,
+    };
+  }
+
+  // ==========================================
+  // Vehicles & Delivery Load
+  // ==========================================
+  public getVehicles(): DbVehicle[] {
+    return this.vehicles;
+  }
+
+  public createVehicle(
+    data: { label: string; type: DbVehicle['type']; capacityMaxPortions: number; plate?: string },
+    actor?: { id: string; name: string }
+  ): DbVehicle {
+    if (!Number.isInteger(data.capacityMaxPortions) || data.capacityMaxPortions <= 0) {
+      throw new Error('INVALID_VEHICLE_CAPACITY');
+    }
+    if (!['MOTO', 'VAN', 'TRUCK'].includes(data.type)) throw new Error('INVALID_VEHICLE_TYPE');
+    const vehicle: DbVehicle = {
+      id: `vehicle-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      label: data.label.trim(),
+      type: data.type,
+      capacityMaxPortions: data.capacityMaxPortions,
+      isActive: true,
+      plate: data.plate?.trim(),
+    };
+    this.vehicles.push(vehicle);
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'Système',
+      action: 'CREATE_VEHICLE',
+      entityType: 'VEHICLE',
+      entityId: vehicle.id,
+      afterSnapshot: vehicle,
+    });
+    this.persist();
+    return vehicle;
+  }
+
+  public updateVehicle(
+    vehicleId: string,
+    patch: {
+      label?: string;
+      type?: DbVehicle['type'];
+      capacityMaxPortions?: number;
+      isActive?: boolean;
+      plate?: string;
+    },
+    actor?: { id: string; name: string }
+  ): DbVehicle | undefined {
+    const vehicle = this.vehicles.find((entry) => entry.id === vehicleId);
+    if (!vehicle) return undefined;
+    const before = this.cloneSnapshot(vehicle);
+    if (patch.label !== undefined) vehicle.label = patch.label.trim();
+    if (patch.type !== undefined) {
+      if (!['MOTO', 'VAN', 'TRUCK'].includes(patch.type)) throw new Error('INVALID_VEHICLE_TYPE');
+      vehicle.type = patch.type;
+    }
+    if (patch.capacityMaxPortions !== undefined) {
+      if (!Number.isInteger(patch.capacityMaxPortions) || patch.capacityMaxPortions <= 0) {
+        throw new Error('INVALID_VEHICLE_CAPACITY');
+      }
+      vehicle.capacityMaxPortions = patch.capacityMaxPortions;
+    }
+    if (patch.isActive !== undefined) vehicle.isActive = patch.isActive;
+    if (patch.plate !== undefined) vehicle.plate = patch.plate.trim();
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'Système',
+      action: 'UPDATE_VEHICLE',
+      entityType: 'VEHICLE',
+      entityId: vehicle.id,
+      beforeSnapshot: before,
+      afterSnapshot: this.cloneSnapshot(vehicle),
+    });
+    this.persist();
+    return vehicle;
+  }
+
+  public calculateRunLoad(runId: string): number {
+    const run = this.deliveryRuns.find((entry) => entry.id === runId);
+    if (!run) return 0;
+    return run.stops.reduce((sum, stop) => {
+      const order = this.orders.find((entry) => entry.id === stop.orderId);
+      if (!order || order.status === OrderStatus.CANCELLED) return sum;
+      return sum + order.totalPortions;
+    }, 0);
+  }
+
+  public assignVehicleToRun(
+    runId: string,
+    vehicleId: string,
+    actor?: { id: string; name: string }
+  ): DbDeliveryRun | undefined {
+    const run = this.deliveryRuns.find((entry) => entry.id === runId);
+    if (!run) return undefined;
+    const vehicle = this.vehicles.find((entry) => entry.id === vehicleId && entry.isActive);
+    if (!vehicle) throw new Error('VEHICLE_NOT_FOUND');
+    const load = this.calculateRunLoad(runId);
+    if (load > vehicle.capacityMaxPortions) throw new Error('VEHICLE_CAPACITY_EXCEEDED');
+    const before = { vehicleId: run.vehicleId, loadPortions: run.loadPortions };
+    run.vehicleId = vehicle.id;
+    run.vehicleLabel = vehicle.label;
+    run.vehicleType = vehicle.type;
+    run.capacityMaxPortions = vehicle.capacityMaxPortions;
+    run.loadPortions = load;
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'Système',
+      action: 'ASSIGN_VEHICLE',
+      entityType: 'DELIVERY_RUN',
+      entityId: run.id,
+      beforeSnapshot: before,
+      afterSnapshot: { vehicleId: vehicle.id, loadPortions: load },
+    });
+    this.persist();
+    return run;
+  }
+
+  // ==========================================
+  // Recipe Versioning
+  // ==========================================
+  public getRecipeVersions(recipeId: string): DbRecipeVersion[] {
+    return this.recipeVersions
+      .filter((version) => version.recipeId === recipeId)
+      .sort((left, right) => right.version - left.version);
+  }
+
+  public updateRecipe(
+    recipeId: string,
+    patch: {
+      name?: string;
+      nameAr?: string;
+      photoUrl?: string;
+      category?: ComponentCategory;
+      description?: string;
+      yieldPortions?: number;
+      preparationTimeMinutes?: number;
+      allergens?: string[];
+      ingredients?: DbRecipe['ingredients'];
+      price?: number;
+      isActive?: boolean;
+      family?: string;
+      flags?: DbRecipe['flags'];
+      mainIngredient?: string;
+    },
+    actor?: { id: string; name: string }
+  ): DbRecipe | undefined {
+    const recipe = this.recipes.find((entry) => entry.id === recipeId);
+    if (!recipe) return undefined;
+    const before = this.cloneSnapshot(recipe);
+    const currentVersion = recipe.version ?? 1;
+    this.recipeVersions.push({
+      id: `rv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      recipeId,
+      version: currentVersion,
+      snapshot: before,
+      createdAt: new Date().toISOString(),
+      createdBy: actor?.name,
+    });
+    recipe.version = currentVersion + 1;
+    if (patch.name !== undefined) recipe.name = patch.name.trim();
+    if (patch.nameAr !== undefined) recipe.nameAr = patch.nameAr.trim();
+    if (patch.photoUrl !== undefined) recipe.photoUrl = patch.photoUrl.trim();
+    if (patch.category !== undefined) recipe.category = patch.category;
+    if (patch.description !== undefined) recipe.description = patch.description.trim();
+    if (patch.yieldPortions !== undefined) recipe.yieldPortions = patch.yieldPortions;
+    if (patch.preparationTimeMinutes !== undefined) {
+      recipe.preparationTimeMinutes = patch.preparationTimeMinutes;
+    }
+    if (patch.allergens !== undefined) recipe.allergens = patch.allergens;
+    if (patch.ingredients !== undefined) recipe.ingredients = patch.ingredients;
+    if (patch.price !== undefined) recipe.price = patch.price;
+    if (patch.isActive !== undefined) recipe.isActive = patch.isActive;
+    if (patch.family !== undefined) recipe.family = patch.family;
+    if (patch.flags !== undefined) recipe.flags = patch.flags;
+    if (patch.mainIngredient !== undefined) recipe.mainIngredient = patch.mainIngredient;
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'Système',
+      action: 'UPDATE_RECIPE',
+      entityType: 'RECIPE',
+      entityId: recipe.id,
+      beforeSnapshot: before,
+      afterSnapshot: this.cloneSnapshot(recipe),
+    });
+    this.persist();
+    return recipe;
+  }
+
+  // ==========================================
+  // Alternatives (permanent / limited / reservation)
+  // ==========================================
+  public getAlternatives(): DbAlternative[] {
+    return this.alternatives;
+  }
+
+  private alternativeAvailable(
+    alternative: DbAlternative,
+    customerId: string,
+    portions: number
+  ): boolean {
+    const today = new Date().toLocaleDateString('en-CA');
+    if (!alternative.isActive) return false;
+    if (alternative.customerId && alternative.customerId !== customerId) return false;
+    if (alternative.validFrom && alternative.validFrom > today) return false;
+    if (alternative.validTo && alternative.validTo < today) return false;
+    if (alternative.type === 'PERMANENT') return true;
+    return (alternative.remainingPortions ?? 0) >= portions;
+  }
+
+  private findApplicableAlternative(
+    recipeId: string,
+    customerId: string,
+    portions: number
+  ): DbAlternative | undefined {
+    return this.alternatives
+      .filter(
+        (alternative) =>
+          alternative.recipeId === recipeId &&
+          this.alternativeAvailable(alternative, customerId, portions)
+      )
+      .sort((left, right) => {
+        const customerPriority = (left.customerId ? 0 : 1) - (right.customerId ? 0 : 1);
+        if (customerPriority !== 0) return customerPriority;
+        return (left.price ?? Number.MAX_SAFE_INTEGER) - (right.price ?? Number.MAX_SAFE_INTEGER);
+      })[0];
+  }
+
+  /**
+   * Returns the price of the applicable alternative, or undefined when the
+   * dish has no alternative pricing. A limited/reservation alternative that is
+   * exhausted blocks the order instead of silently falling back to list price.
+   */
+  private resolveAlternativePrice(
+    recipeId: string,
+    customerId: string,
+    portions: number
+  ): number | undefined {
+    const today = new Date().toLocaleDateString('en-CA');
+    const candidates = this.alternatives.filter(
+      (alternative) =>
+        alternative.recipeId === recipeId &&
+        alternative.isActive &&
+        (!alternative.customerId || alternative.customerId === customerId) &&
+        (!alternative.validFrom || alternative.validFrom <= today) &&
+        (!alternative.validTo || alternative.validTo >= today)
+    );
+    if (candidates.length === 0) return undefined;
+    const usable = candidates.filter((alternative) =>
+      this.alternativeAvailable(alternative, customerId, portions)
+    );
+    if (usable.length === 0) throw new Error('ALTERNATIVE_EXHAUSTED');
+    usable.sort((left, right) => {
+      const customerPriority = (left.customerId ? 0 : 1) - (right.customerId ? 0 : 1);
+      if (customerPriority !== 0) return customerPriority;
+      return (left.price ?? Number.MAX_SAFE_INTEGER) - (right.price ?? Number.MAX_SAFE_INTEGER);
+    });
+    return usable[0].price;
+  }
+
+  public createAlternative(
+    data: {
+      recipeId: string;
+      customerId?: string;
+      type: AlternativeType;
+      price?: number;
+      maxPortions?: number;
+      station?: WorkshopStation;
+      validFrom?: string;
+      validTo?: string;
+    },
+    actor?: { id: string; name: string }
+  ): DbAlternative {
+    const recipe = this.getRecipeById(data.recipeId);
+    if (!recipe) throw new Error('RECIPE_NOT_FOUND');
+    if (!isAlternativeType(data.type)) throw new Error('INVALID_ALTERNATIVE_TYPE');
+    if (data.customerId && !this.getCustomerById(data.customerId)) {
+      throw new Error('CUSTOMER_NOT_FOUND');
+    }
+    if (data.type !== 'PERMANENT') {
+      if (!Number.isInteger(data.maxPortions) || (data.maxPortions ?? 0) < 1) {
+        throw new Error('INVALID_ALTERNATIVE_CAPACITY');
+      }
+    }
+    const alternative: DbAlternative = {
+      id: `alt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      recipeId: data.recipeId,
+      customerId: data.customerId,
+      type: data.type,
+      price: data.price,
+      maxPortions: data.maxPortions,
+      remainingPortions: data.type === 'PERMANENT' ? undefined : data.maxPortions,
+      station: data.station,
+      isActive: true,
+      validFrom: data.validFrom,
+      validTo: data.validTo,
+      createdAt: new Date().toISOString(),
+    };
+    this.alternatives.push(alternative);
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'Système',
+      action: 'CREATE_ALTERNATIVE',
+      entityType: 'ALTERNATIVE',
+      entityId: alternative.id,
+      afterSnapshot: alternative,
+    });
+    this.persist();
+    return alternative;
+  }
+
+  public updateAlternative(
+    alternativeId: string,
+    patch: {
+      price?: number;
+      maxPortions?: number;
+      isActive?: boolean;
+      validFrom?: string;
+      validTo?: string;
+      station?: WorkshopStation;
+    },
+    actor?: { id: string; name: string }
+  ): DbAlternative | undefined {
+    const alternative = this.alternatives.find((entry) => entry.id === alternativeId);
+    if (!alternative) return undefined;
+    const before = this.cloneSnapshot(alternative);
+    if (patch.price !== undefined) alternative.price = patch.price;
+    if (patch.maxPortions !== undefined) {
+      if (!Number.isInteger(patch.maxPortions) || patch.maxPortions < 1) {
+        throw new Error('INVALID_ALTERNATIVE_CAPACITY');
+      }
+      alternative.maxPortions = patch.maxPortions;
+      if (alternative.type !== 'PERMANENT') {
+        alternative.remainingPortions = Math.min(
+          alternative.remainingPortions ?? patch.maxPortions,
+          patch.maxPortions
+        );
+      }
+    }
+    if (patch.isActive !== undefined) alternative.isActive = patch.isActive;
+    if (patch.validFrom !== undefined) alternative.validFrom = patch.validFrom;
+    if (patch.validTo !== undefined) alternative.validTo = patch.validTo;
+    if (patch.station !== undefined) alternative.station = patch.station;
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'Système',
+      action: 'UPDATE_ALTERNATIVE',
+      entityType: 'ALTERNATIVE',
+      entityId: alternative.id,
+      beforeSnapshot: before,
+      afterSnapshot: this.cloneSnapshot(alternative),
+    });
+    this.persist();
+    return alternative;
+  }
+
+  public reserveAlternative(
+    alternativeId: string,
+    portions: number,
+    actor?: { id: string; name: string }
+  ): DbAlternative | undefined {
+    const alternative = this.alternatives.find((entry) => entry.id === alternativeId);
+    if (!alternative) return undefined;
+    if (!Number.isInteger(portions) || portions < 1) throw new Error('QUANTITY_INVALID');
+    if (alternative.type === 'PERMANENT') return alternative;
+    if ((alternative.remainingPortions ?? 0) < portions) throw new Error('ALTERNATIVE_EXHAUSTED');
+    alternative.remainingPortions = (alternative.remainingPortions ?? 0) - portions;
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'Système',
+      action: 'RESERVE_ALTERNATIVE',
+      entityType: 'ALTERNATIVE',
+      entityId: alternative.id,
+      beforeSnapshot: { remainingPortions: (alternative.remainingPortions ?? 0) + portions },
+      afterSnapshot: { remainingPortions: alternative.remainingPortions },
+    });
+    this.persist();
+    return alternative;
+  }
+
+  private consumeAlternatives(items: DbOrderItem[], customerId: string): void {
+    for (const item of items) {
+      const alternative = this.findApplicableAlternative(item.recipeId, customerId, item.portions);
+      if (!alternative || alternative.type === 'PERMANENT') continue;
+      alternative.remainingPortions = Math.max(
+        0,
+        (alternative.remainingPortions ?? 0) - item.portions
+      );
+    }
+  }
+
+  // ==========================================
+  // Menu Proposal Engine (human validation kept)
+  // ==========================================
+  public proposeWeeklyMenu(startDateStr?: string): MenuProposal {
+    const start = startDateStr ? new Date(`${startDateStr}T00:00:00`) : new Date();
+    const mains = this.recipes.filter(
+      (recipe) =>
+        recipe.isActive !== false &&
+        recipe.category === ComponentCategory.MAIN_COURSE
+    );
+    if (mains.length === 0) throw new Error('NO_MAIN_RECIPES');
+    const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    const used: string[] = [];
+    const proposedPlans: DbMealPlan[] = [];
+    const days: MenuProposalDay[] = [];
+    let pastaLunches = 0;
+
+    for (let index = 0; index < 7; index += 1) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      const iso = date.toLocaleDateString('en-CA');
+      const dayOfWeek = date.getDay();
+      const isSaturday = dayOfWeek === 6;
+      const unused = mains.filter((recipe) => !used.includes(recipe.id));
+      const lunchPool = (unused.length > 0 ? unused : mains).filter((recipe) => {
+        if (isSaturday && (recipe.preparationTimeMinutes ?? 30) > 45) return false;
+        const isPasta = recipe.family === 'PASTA' || recipe.flags?.includes('PASTA');
+        return !(isPasta && pastaLunches >= 1);
+      });
+      const lunch = lunchPool[index % Math.max(1, lunchPool.length)] ?? mains[index % mains.length];
+      used.push(lunch.id);
+      if (lunch.family === 'PASTA' || lunch.flags?.includes('PASTA')) pastaLunches += 1;
+
+      const dinnerPool = mains.filter((recipe) => {
+        if (recipe.id === lunch.id) return false;
+        if (isSaturday && (recipe.preparationTimeMinutes ?? 30) > 45) return false;
+        if (recipe.mainIngredient && recipe.mainIngredient === lunch.mainIngredient) return false;
+        if (lunch.flags?.includes('FRIES') && recipe.flags?.includes('FRIES')) return false;
+        if (lunch.flags?.includes('MINCED') && recipe.flags?.includes('MINCED')) return false;
+        return true;
+      });
+      const dinner =
+        dinnerPool[index % Math.max(1, dinnerPool.length)] ??
+        mains.find((recipe) => recipe.id !== lunch.id) ??
+        lunch;
+
+      const lunchPlan: DbMealPlan = {
+        id: `proposal-lunch-${iso}`,
+        date: iso,
+        serviceTime: MealServiceTime.LUNCH,
+        mainCourseRecipeId: lunch.id,
+      };
+      const dinnerPlan: DbMealPlan = {
+        id: `proposal-dinner-${iso}`,
+        date: iso,
+        serviceTime: MealServiceTime.DINNER,
+        mainCourseRecipeId: dinner.id,
+      };
+      proposedPlans.push(lunchPlan, dinnerPlan);
+      days.push({ date: iso, dayName: dayNames[dayOfWeek], lunch: lunchPlan, dinner: dinnerPlan });
+    }
+
+    const validation = this.validateMenuCalendarRules(proposedPlans);
+    return {
+      startDate: start.toLocaleDateString('en-CA'),
+      generatedAt: new Date().toISOString(),
+      days,
+      violations: validation.violations,
+      isValid: validation.isValid,
+    };
+  }
+
+  // ==========================================
+  // Accounting: discounts and reference prices
+  // ==========================================
+  private applyCustomerDiscount(
+    customer: DbCustomer,
+    grossAmount: number
+  ): { subtotal: number; discountAmount: number; total: number } {
+    const percent = customer.discountPercent ?? 0;
+    const discountAmount =
+      percent > 0 ? Math.round(grossAmount * percent) / 100 : 0;
+    return {
+      subtotal: grossAmount,
+      discountAmount,
+      total: Math.max(0, Math.round((grossAmount - discountAmount) * 100) / 100),
+    };
+  }
+
+  public setCustomerDiscount(
+    customerId: string,
+    percent: number,
+    actor?: { id: string; name: string }
+  ): DbCustomer | undefined {
+    if (typeof percent !== 'number' || !Number.isFinite(percent) || percent < 0 || percent > 100) {
+      throw new Error('INVALID_DISCOUNT');
+    }
+    const customer = this.getCustomerById(customerId);
+    if (!customer) return undefined;
+    const before = customer.discountPercent ?? 0;
+    customer.discountPercent = percent;
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'Système',
+      action: 'SET_CUSTOMER_DISCOUNT',
+      entityType: 'CUSTOMER',
+      entityId: customer.id,
+      beforeSnapshot: { discountPercent: before },
+      afterSnapshot: { discountPercent: percent },
+    });
+    this.persist();
+    return customer;
+  }
+
+  public applyInvoiceDiscount(
+    invoiceId: string,
+    type: 'PERCENT' | 'FIXED',
+    value: number,
+    actor?: { id: string; name: string }
+  ): DbInvoice | undefined {
+    const invoice = this.invoices.find((entry) => entry.id === invoiceId);
+    if (!invoice) return undefined;
+    if (type !== 'PERCENT' && type !== 'FIXED') throw new Error('INVALID_DISCOUNT_TYPE');
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      throw new Error('INVALID_DISCOUNT');
+    }
+    if (type === 'PERCENT' && value > 100) throw new Error('INVALID_DISCOUNT');
+    const subtotal =
+      invoice.subtotal ??
+      Math.round((invoice.totalAmount + (invoice.discountAmount ?? 0)) * 100) / 100;
+    const discountAmount =
+      type === 'PERCENT'
+        ? Math.round((subtotal * value) / 100 * 100) / 100
+        : Math.min(value, subtotal);
+    const total = Math.max(0, Math.round((subtotal - discountAmount) * 100) / 100);
+    const before = this.cloneSnapshot(invoice);
+    invoice.subtotal = subtotal;
+    invoice.discountType = type;
+    invoice.discountValue = value;
+    invoice.discountAmount = discountAmount;
+    invoice.totalAmount = total;
+    if (invoice.paidAmount >= total) {
+      invoice.paidAmount = total;
+      invoice.status = 'PAID';
+    } else if (invoice.paidAmount > 0) {
+      invoice.status = 'PARTIALLY_PAID';
+    } else {
+      invoice.status = 'ISSUED';
+    }
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'Système',
+      action: 'APPLY_INVOICE_DISCOUNT',
+      entityType: 'INVOICE',
+      entityId: invoice.id,
+      beforeSnapshot: before,
+      afterSnapshot: this.cloneSnapshot(invoice),
+    });
+    this.persist();
+    return invoice;
+  }
+
+  // ==========================================
   // Logistics & Delivery Runs
   // ==========================================
   public getDeliveryRuns(date?: string): DbDeliveryRun[] {
@@ -2693,6 +3838,10 @@ export class JanitouStore {
       deliveryStatus: 'PENDING',
     }));
 
+    const loadPortions = relevantOrders.reduce((sum, order) => sum + order.totalPortions, 0);
+    const vehicle = this.vehicles
+      .filter((entry) => entry.isActive && entry.capacityMaxPortions >= loadPortions)
+      .sort((left, right) => left.capacityMaxPortions - right.capacityMaxPortions)[0];
     const run: DbDeliveryRun = {
       id: `run-${Date.now()}`,
       runDate: data.runDate,
@@ -2701,6 +3850,11 @@ export class JanitouStore {
       driverPhone: data.driverPhone,
       status: 'PLANNED',
       stops,
+      vehicleId: vehicle?.id,
+      vehicleLabel: vehicle?.label,
+      vehicleType: vehicle?.type,
+      capacityMaxPortions: vehicle?.capacityMaxPortions,
+      loadPortions,
     };
 
     this.deliveryRuns.push(run);
@@ -3061,7 +4215,7 @@ export class JanitouStore {
         Boolean(dinnerMain?.flags?.includes('FRIES')) ||
         dinnerName.includes('frite') ||
         dinnerName.includes('pommes de terre');
-      if (lunchHasFries && dinnerHasFries) {
+      if (lunchHasFries && dinnerHasFries && !this.advancedRules.allowSameDayFries) {
         violations.push({
           date,
           ruleName: 'INTERDICTION_FRITES_MIDI_SOIR',
@@ -3079,7 +4233,7 @@ export class JanitouStore {
         Boolean(dinnerMain?.flags?.includes('MINCED')) ||
         dinnerName.includes('haché') ||
         dinnerName.includes('boulette');
-      if (lunchHasMinced && dinnerHasMinced) {
+      if (lunchHasMinced && dinnerHasMinced && !this.advancedRules.allowSameDayMincedMeat) {
         violations.push({
           date,
           ruleName: 'INTERDICTION_VIANDE_HACHEE_MIDI_SOIR',
@@ -3097,7 +4251,7 @@ export class JanitouStore {
         lunchName.includes('macaroni')
       ) {
         lunchPastaCount++;
-        if (lunchPastaCount > 1) {
+        if (lunchPastaCount > this.advancedRules.maxPastaPerWeek) {
           violations.push({
             date,
             ruleName: 'MAX_PATES_DEJEUNER_HEBDO',
@@ -3336,10 +4490,17 @@ export class JanitouStore {
         customers: this.customers,
         mealPlans: this.mealPlans,
         orders: this.orders,
+        pendingOrders: this.pendingOrders,
         productionBatches: this.productionBatches,
         purchaseOrders: this.purchaseOrders,
         deliveryRuns: this.deliveryRuns,
         subscriptions: this.subscriptions,
+        kdsBatches: this.kdsBatches,
+        vehicles: this.vehicles,
+        workshops: this.workshops,
+        workOrders: this.workOrders,
+        recipeVersions: this.recipeVersions,
+        alternatives: this.alternatives,
         invoices: this.invoices,
         payments: this.payments,
         auditLogs: this.auditLogs,
@@ -3351,21 +4512,122 @@ export class JanitouStore {
     };
   }
 
-  public restoreDatabaseFromBackup(backup: { data: Record<string, unknown> }): boolean {
-    if (!backup || typeof backup.data !== 'object') return false;
-    const d = backup.data;
-    if (Array.isArray(d.customers)) this.customers = d.customers as DbCustomer[];
-    if (Array.isArray(d.orders)) this.orders = d.orders as DbOrder[];
-    if (Array.isArray(d.pendingOrders)) this.pendingOrders = d.pendingOrders as DbOrder[];
-    if (Array.isArray(d.recipes)) this.recipes = d.recipes as DbRecipe[];
-    if (Array.isArray(d.ingredients)) this.ingredients = d.ingredients as DbIngredient[];
-    if (Array.isArray(d.invoices)) this.invoices = d.invoices as DbInvoice[];
-    if (Array.isArray(d.payments)) this.payments = d.payments as DbPayment[];
-    if (Array.isArray(d.staffUsers)) this.staffUsers = d.staffUsers as DbStaffUser[];
-    if (Array.isArray(d.notifications)) this.notifications = d.notifications as DbNotification[];
-    if (Array.isArray(d.outboundMessages)) this.outboundMessages = d.outboundMessages as DbOutboundMessage[];
-    if (d.settings) this.settings = this.normalizeSettings(d.settings);
+  private collectionCounts(): Record<string, number> {
+    return {
+      suppliers: this.suppliers.length,
+      ingredients: this.ingredients.length,
+      recipes: this.recipes.length,
+      customers: this.customers.length,
+      mealPlans: this.mealPlans.length,
+      orders: this.orders.length,
+      pendingOrders: this.pendingOrders.length,
+      productionBatches: this.productionBatches.length,
+      purchaseOrders: this.purchaseOrders.length,
+      deliveryRuns: this.deliveryRuns.length,
+      subscriptions: this.subscriptions.length,
+      kdsBatches: this.kdsBatches.length,
+      invoices: this.invoices.length,
+      payments: this.payments.length,
+      auditLogs: this.auditLogs.length,
+      staffUsers: this.staffUsers.length,
+      notifications: this.notifications.length,
+      outboundMessages: this.outboundMessages.length,
+      vehicles: this.vehicles.length,
+      workshops: this.workshops.length,
+      workOrders: this.workOrders.length,
+      recipeVersions: this.recipeVersions.length,
+      alternatives: this.alternatives.length,
+    };
+  }
+
+  public recordAuditEntry(
+    actor: { id: string; name: string } | undefined,
+    action: string,
+    entityType: string,
+    entityId: string,
+    beforeSnapshot?: unknown,
+    afterSnapshot?: unknown
+  ): void {
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'System',
+      action,
+      entityType,
+      entityId,
+      beforeSnapshot,
+      afterSnapshot,
+    });
     this.persist();
+  }
+
+  /**
+   * Restores a full domain snapshot. Validation is deliberately strict because
+   * the payload can replace staff accounts: unknown shapes are rejected, and a
+   * non-empty staff list must contain an active administrator so a restore can
+   * never lock the platform out.
+   */
+  public async restoreDatabaseFromBackup(
+    backup: unknown,
+    actor?: { id: string; name: string }
+  ): Promise<boolean> {
+    if (!isPlainObject(backup) || !isPlainObject(backup.data)) return false;
+    const data = backup.data;
+    for (const key of RESTORABLE_COLLECTIONS) {
+      if (data[key] !== undefined && !Array.isArray(data[key])) return false;
+    }
+    if (data.settings !== undefined && !isPlainObject(data.settings)) return false;
+    if (data.staffUsers !== undefined && !isValidStaffSnapshot(data.staffUsers)) return false;
+
+    const restoreList = <T>(key: RestorableCollection, current: T[]): T[] =>
+      Array.isArray(data[key]) ? (data[key] as T[]) : current;
+    const before = this.collectionCounts();
+
+    this.suppliers = restoreList('suppliers', this.suppliers);
+    this.ingredients = restoreList('ingredients', this.ingredients);
+    this.recipes = restoreList('recipes', this.recipes);
+    this.customers = restoreList('customers', this.customers);
+    this.mealPlans = restoreList('mealPlans', this.mealPlans);
+    this.orders = restoreList('orders', this.orders);
+    this.pendingOrders = restoreList('pendingOrders', this.pendingOrders);
+    this.productionBatches = restoreList('productionBatches', this.productionBatches);
+    this.purchaseOrders = restoreList('purchaseOrders', this.purchaseOrders);
+    this.deliveryRuns = restoreList('deliveryRuns', this.deliveryRuns);
+    this.subscriptions = restoreList('subscriptions', this.subscriptions);
+    this.kdsBatches = restoreList('kdsBatches', this.kdsBatches);
+    this.vehicles = restoreList('vehicles', this.vehicles);
+    this.workshops = restoreList('workshops', this.workshops);
+    this.workOrders = restoreList('workOrders', this.workOrders);
+    this.recipeVersions = restoreList('recipeVersions', this.recipeVersions);
+    this.alternatives = restoreList('alternatives', this.alternatives);
+    this.invoices = restoreList('invoices', this.invoices);
+    this.payments = restoreList('payments', this.payments);
+    this.auditLogs = restoreList('auditLogs', this.auditLogs);
+    this.staffUsers = restoreList('staffUsers', this.staffUsers);
+    this.notifications = restoreList('notifications', this.notifications);
+    this.outboundMessages = restoreList('outboundMessages', this.outboundMessages);
+    if (data.settings !== undefined) this.settings = this.normalizeSettings(data.settings);
+
+    // Sessions are never restored: drop those whose principal no longer exists
+    // or was disabled by the restored snapshot.
+    const staffIds = new Set(this.staffUsers.filter((user) => user.isActive).map((user) => user.id));
+    this.staffSessions = this.staffSessions.filter((session) => staffIds.has(session.userId));
+    const customerIds = new Set(this.customers.map((customer) => customer.id));
+    this.clientSessions = this.clientSessions.filter((session) => customerIds.has(session.customerId));
+
+    this.auditLogs.unshift({
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: actor?.id || 'system',
+      userName: actor?.name || 'System',
+      action: 'RESTORE_DATABASE',
+      entityType: 'DATABASE',
+      entityId: 'main',
+      beforeSnapshot: before,
+      afterSnapshot: this.collectionCounts(),
+    });
+    await this.enqueuePersist();
     return true;
   }
 
@@ -3533,6 +4795,488 @@ export class JanitouStore {
         };
       }
     }
+  }
+
+  // ========================================================
+  // Phase 2 — Moteur de Configuration Avancé (02)
+  // ========================================================
+  public getAdvancedRules(): AdvancedRulesConfig {
+    return { ...this.advancedRules };
+  }
+
+  public updateAdvancedRules(patch: Partial<AdvancedRulesConfig>): AdvancedRulesConfig {
+    this.advancedRules = { ...this.advancedRules, ...patch };
+    this.persist();
+    return { ...this.advancedRules };
+  }
+
+  // ========================================================
+  // Phase 2 — Gestion Avancée des Pénuries & Suggestions (04)
+  // ========================================================
+  public simulateShortages(date: string, serviceTime?: MealServiceTime): ShortageSimulationResult {
+    const plan = this.calculateProductionNeeds(date, serviceTime);
+    const shortages: ShortageItem[] = [];
+    let totalDeficitCost = 0;
+
+    const SUBSTITUTION_MAP: Record<string, { name: string; ratio: number; notes: string }> = {
+      'ing-1': { name: 'Escalope de Dinde Fraîche', ratio: 1.0, notes: 'Remplacement volaille équivalente' },
+      'ing-2': { name: 'Huile Végétale / Tournesol', ratio: 1.0, notes: 'Substitut direct cuisson' },
+      'ing-3': { name: 'Semoule Moyenne Extra', ratio: 1.0, notes: 'Mouture alternative compatible' },
+      'ing-4': { name: 'Pommes de terre fraîches', ratio: 1.0, notes: 'Substitution légume féculent' },
+      'ing-5': { name: 'Coulis de tomates fraîches', ratio: 1.2, notes: 'Alternative sauce traditionnelle' },
+    };
+
+    for (const req of plan.ingredientRequirements) {
+      if (req.currentStock < req.quantityRequired) {
+        const deficit = req.quantityRequired - req.currentStock;
+        const ing = this.getIngredientById(req.ingredientId);
+        const unitCost = ing?.unitCost || 200;
+        totalDeficitCost += deficit * unitCost;
+
+        const impactedRecipeNames: string[] = [];
+        for (const r of plan.recipes) {
+          const recipe = this.getRecipeById(r.recipeId);
+          if (recipe?.ingredients.some((i) => i.ingredientId === req.ingredientId)) {
+            impactedRecipeNames.push(recipe.name);
+          }
+        }
+
+        const sub = SUBSTITUTION_MAP[req.ingredientId] || {
+          name: `Alternative générique ${req.ingredientName}`,
+          ratio: 1.0,
+          notes: 'Suggestion basée sur la famille d’ingrédient',
+        };
+
+        shortages.push({
+          ingredientId: req.ingredientId,
+          ingredientName: req.ingredientName,
+          unit: req.unit,
+          currentStock: req.currentStock,
+          requiredQuantity: req.quantityRequired,
+          deficitQuantity: Math.round(deficit * 100) / 100,
+          suggestedSubstitution: sub,
+          impactedRecipeNames,
+        });
+      }
+    }
+
+    const relevantOrders = this.orders.filter(
+      (o) => o.deliveryDate === date && (!serviceTime || o.serviceTime === serviceTime) && o.status !== OrderStatus.CANCELLED
+    );
+
+    let corporatePriorityCount = 0;
+    let standardCount = 0;
+    for (const ord of relevantOrders) {
+      const cust = this.getCustomerById(ord.customerId);
+      if (cust?.subscriptionType === 'CORPORATE' || cust?.subscriptionType === 'SUBSIDIARY') {
+        corporatePriorityCount++;
+      } else {
+        standardCount++;
+      }
+    }
+
+    const recommendations: string[] = [];
+    if (shortages.length === 0) {
+      recommendations.push('Stock suffisant pour la production prévue : aucun déficit détecté.');
+    } else {
+      recommendations.push(
+        `Alerte : ${shortages.length} ingrédient(s) en déficit critique pour une valeur estimée de ${Math.round(totalDeficitCost)} DZD.`
+      );
+      recommendations.push(
+        `Priorisation automatique : Réserver les stocks restants en priorité aux ${corporatePriorityCount} commandes entreprises (Corporate/Filiales).`
+      );
+      recommendations.push(
+        `Action recommandée : Activer les ${shortages.length} substitutions suggérées ou déclencher un bon de commande express.`
+      );
+    }
+
+    return {
+      date,
+      serviceTime,
+      hasShortage: shortages.length > 0,
+      shortagesCount: shortages.length,
+      totalDeficitCost: Math.round(totalDeficitCost),
+      shortages,
+      impactedOrdersSummary: {
+        totalImpactedOrders: relevantOrders.length,
+        corporatePriorityOrders: corporatePriorityCount,
+        standardOrders: standardCount,
+      },
+      recommendations,
+    };
+  }
+
+  // ========================================================
+  // Phase 2 — Distribution Avancée & Optimisation des Tournées (05)
+  // ========================================================
+  public optimizeDeliveryRuns(
+    date: string,
+    serviceTime: MealServiceTime,
+    autoPersistRuns = false
+  ): DeliveryOptimizationResult {
+    const orders = this.orders.filter(
+      (o) => o.deliveryDate === date && o.serviceTime === serviceTime && o.status !== OrderStatus.CANCELLED
+    );
+
+    const availableVehicles: DbVehicle[] = this.vehicles.filter((v) => v.isActive).length > 0
+      ? this.vehicles.filter((v) => v.isActive)
+      : [
+          {
+            id: 'veh-default-1',
+            type: 'VAN',
+            label: 'Renault Kangoo Express (01234-116-16)',
+            capacityMaxPortions: 80,
+            isActive: true,
+          },
+        ];
+
+    const ZONE_KEYWORDS: Record<string, string[]> = {
+      'Zone 1 — Alger Centre & Didouche': ['alger', 'didouche', 'audin', 'belouizdad', 'telemly', 'mohamed v'],
+      'Zone 2 — Hydra, Ben Aknoun & El Biar': ['hydra', 'ben aknoun', 'el biar', 'dely ibrahim'],
+      'Zone 3 — Bab Ezzouar & Aéroport': ['bab ezzouar', 'dar el beida', 'aeroport', 'mohammadia'],
+      'Zone 4 — Kouba & Banlieue Sud': ['kouba', 'bir khadem', 'hussein dey', 'saoula'],
+    };
+
+    const zoneBuckets: Record<string, typeof orders> = {};
+    for (const ord of orders) {
+      const addr = (ord.deliveryAddress || '').toLowerCase();
+      let matchedZone = 'Zone 5 — Autres Communes & Périphérie';
+      for (const [zoneName, keywords] of Object.entries(ZONE_KEYWORDS)) {
+        if (keywords.some((k) => addr.includes(k))) {
+          matchedZone = zoneName;
+          break;
+        }
+      }
+      if (!zoneBuckets[matchedZone]) zoneBuckets[matchedZone] = [];
+      zoneBuckets[matchedZone].push(ord);
+    }
+
+    const optimizedRuns: OptimizedRunAssignment[] = [];
+    let vehicleIdx = 0;
+
+    for (const [zoneName, zoneOrders] of Object.entries(zoneBuckets)) {
+      if (zoneOrders.length === 0) continue;
+      const vehicle = availableVehicles[vehicleIdx % availableVehicles.length];
+      vehicleIdx++;
+
+      const stops = zoneOrders.map((ord, idx) => {
+        const cust = this.getCustomerById(ord.customerId);
+        const windowHour = 11 + Math.floor(idx / 3);
+        const windowMin = (idx % 3) * 20;
+        const timeWindow = `${windowHour}h${windowMin.toString().padStart(2, '0')} - ${windowHour}h${(windowMin + 15).toString().padStart(2, '0')}`;
+        return {
+          stopOrder: idx + 1,
+          orderId: ord.id,
+          customerName: cust?.companyName || cust?.contactName || 'Client',
+          deliveryAddress: cust?.deliveryAddress || 'Alger Centre',
+          wilayaOrCommune: cust?.commune || 'Alger',
+          portions: ord.totalPortions,
+          phone: cust?.phone || '0555 00 00 00',
+          estimatedDeliveryWindow: timeWindow,
+        };
+      });
+
+      const totalBoxes = stops.reduce((s, st) => s + st.portions, 0);
+      const cap = vehicle.capacityMaxPortions || 60;
+      const loadPct = Math.round((totalBoxes / cap) * 100);
+      const compensation = 1500 + stops.length * 150;
+
+      const runId = `opt-run-${date}-${serviceTime.toLowerCase()}-${optimizedRuns.length + 1}`;
+      const assignment: OptimizedRunAssignment = {
+        runId,
+        runDate: date,
+        serviceTime,
+        vehicleId: vehicle.id,
+        vehicleLabel: vehicle.label || 'Véhicule de livraison',
+        driverName: 'Chauffeur Assigné',
+        zoneName,
+        totalMealBoxes: totalBoxes,
+        vehicleCapacity: cap,
+        loadPercentage: loadPct,
+        driverCompensationDZD: compensation,
+        stops,
+      };
+
+      optimizedRuns.push(assignment);
+
+      if (autoPersistRuns) {
+        this.deliveryRuns.push({
+          id: runId,
+          runDate: date,
+          serviceTime,
+          vehicleId: vehicle.id,
+          driverName: assignment.driverName,
+          driverPhone: '0555 12 34 56',
+          status: 'PLANNED',
+          stops: stops.map((st, sIdx) => ({
+            id: `stop-${st.orderId}`,
+            orderId: st.orderId,
+            sequence: sIdx + 1,
+            deliveryStatus: 'PENDING',
+          })),
+        });
+      }
+    }
+
+    const totalOrdersCount = orders.length;
+    const totalBoxesCount = orders.reduce((s, o) => s + o.totalPortions, 0);
+
+    return {
+      date,
+      serviceTime,
+      totalOrders: totalOrdersCount,
+      totalMealBoxes: totalBoxesCount,
+      assignedVehiclesCount: optimizedRuns.length,
+      optimizedRuns,
+      unassignedOrders: [],
+    };
+  }
+
+  // ========================================================
+  // Phase 2 — Constructeur de Rapports Dynamiques (08)
+  // ========================================================
+  public buildCustomReport(query: CustomReportQuery): CustomReportResult {
+    const title = query.title || 'Rapport Personnalisé d’Exploitation';
+    let filteredOrders = this.orders.slice();
+
+    if (query.startDate) {
+      filteredOrders = filteredOrders.filter((o) => o.deliveryDate >= query.startDate!);
+    }
+    if (query.endDate) {
+      filteredOrders = filteredOrders.filter((o) => o.deliveryDate <= query.endDate!);
+    }
+    if (query.customerId) {
+      filteredOrders = filteredOrders.filter((o) => o.customerId === query.customerId);
+    }
+    if (query.status) {
+      filteredOrders = filteredOrders.filter((o) => o.status === query.status);
+    }
+    if (query.recipeId) {
+      filteredOrders = filteredOrders.filter((o) => o.items.some((i) => i.recipeId === query.recipeId));
+    }
+
+    let totalPortions = 0;
+    let totalRevenue = 0;
+    let totalFoodCost = 0;
+
+    const records = filteredOrders.map((ord) => {
+      let ordCost = 0;
+      for (const item of ord.items) {
+        const recipe = this.getRecipeById(item.recipeId);
+        const unitCost = recipe?.ingredients.reduce((sum, ing) => {
+          const itemIng = this.getIngredientById(ing.ingredientId);
+          return sum + ing.quantityPerPortion * (itemIng?.unitCost || 100);
+        }, 0) || 150;
+        ordCost += unitCost * item.portions;
+      }
+
+      const rev = ord.totalPrice || ord.totalPortions * 500;
+      const margin = rev - ordCost;
+
+      totalPortions += ord.totalPortions;
+      totalRevenue += rev;
+      totalFoodCost += ordCost;
+
+      const customer = this.getCustomerById(ord.customerId);
+      const customerName = customer?.companyName || customer?.contactName || 'Client Inconnu';
+
+      return {
+        date: ord.deliveryDate,
+        orderId: ord.id,
+        customerName,
+        portions: ord.totalPortions,
+        revenue: Math.round(rev),
+        foodCost: Math.round(ordCost),
+        margin: Math.round(margin),
+        status: ord.status,
+      };
+    });
+
+    const grossMargin = totalRevenue - totalFoodCost;
+    const grossMarginPct = totalRevenue > 0 ? Math.round((grossMargin / totalRevenue) * 1000) / 10 : 0;
+
+    return {
+      title,
+      generatedAt: new Date().toISOString(),
+      period: { startDate: query.startDate, endDate: query.endDate },
+      summary: {
+        ordersCount: filteredOrders.length,
+        totalPortions,
+        totalRevenue: Math.round(totalRevenue),
+        totalFoodCost: Math.round(totalFoodCost),
+        grossMargin: Math.round(grossMargin),
+        grossMarginPct,
+      },
+      records,
+    };
+  }
+
+  public exportCustomReportCsv(query: CustomReportQuery): string {
+    const report = this.buildCustomReport(query);
+    const lines = [
+      `"RAPPORT";"${report.title}"`,
+      `"DATE GENERATION";"${report.generatedAt}"`,
+      `"TOTAL COMMANDES";${report.summary.ordersCount}`,
+      `"TOTAL PORTIONS";${report.summary.totalPortions}`,
+      `"CHIFFRE AFFAIRES DZD";${report.summary.totalRevenue}`,
+      `"COUT MATIERE DZD";${report.summary.totalFoodCost}`,
+      `"MARGE BRUTE DZD";${report.summary.grossMargin}`,
+      `"TAUX MARGE %";${report.summary.grossMarginPct}%`,
+      '',
+      '"Date";"N° Commande";"Client";"Portions";"Chiffre Affaires (DZD)";"Coût Matière (DZD)";"Marge (DZD)";"Statut"',
+    ];
+
+    for (const r of report.records) {
+      const nameEscaped = (r.customerName || 'Client Inconnu').replace(/"/g, '""');
+      lines.push(
+        `"${r.date}";"${r.orderId}";"${nameEscaped}";${r.portions};${r.revenue};${r.foodCost};${r.margin};"${r.status}"`
+      );
+    }
+    return lines.join('\n');
+  }
+
+  // ========================================================
+  // Phase 2 — Calendrier Partageable iCal / ICS (01)
+  // ========================================================
+  public exportMenuIcal(startDate?: string, daysCount = 7): string {
+    const start = startDate ? new Date(startDate) : new Date();
+    const icalLines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//JANITOU FOOD//Menu Planning Platform//FR',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'X-WR-CALNAME:JANITOU FOOD — Menus de la Semaine',
+      'X-WR-TIMEZONE:Africa/Algiers',
+    ];
+
+    for (let i = 0; i < daysCount; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      const iso = d.toISOString().split('T')[0];
+      const ymd = iso.replace(/-/g, '');
+
+      const plans = this.getMealPlans(iso);
+      const lunch = plans.find((p) => p.serviceTime === MealServiceTime.LUNCH);
+      const dinner = plans.find((p) => p.serviceTime === MealServiceTime.DINNER);
+
+      if (lunch) {
+        const recipe = this.getRecipeById(lunch.mainCourseRecipeId);
+        const name = recipe?.name || 'Déjeuner Janitou';
+        const desc = `Déjeuner du jour: ${name}. Allergènes: ${recipe?.allergens.join(', ') || 'Aucun'}.`;
+        icalLines.push(
+          'BEGIN:VEVENT',
+          `UID:janitou-lunch-${iso}@janitou.dz`,
+          `DTSTAMP:${ymd}T000000Z`,
+          `DTSTART:${ymd}T120000Z`,
+          `DTEND:${ymd}T140000Z`,
+          `SUMMARY:Janitou Déjeuner — ${name}`,
+          `DESCRIPTION:${desc.replace(/\n/g, ' ')}`,
+          'STATUS:CONFIRMED',
+          'END:VEVENT'
+        );
+      }
+
+      if (dinner) {
+        const recipe = this.getRecipeById(dinner.mainCourseRecipeId);
+        const name = recipe?.name || 'Dîner Janitou';
+        const desc = `Dîner du jour: ${name}. Allergènes: ${recipe?.allergens.join(', ') || 'Aucun'}.`;
+        icalLines.push(
+          'BEGIN:VEVENT',
+          `UID:janitou-dinner-${iso}@janitou.dz`,
+          `DTSTAMP:${ymd}T000000Z`,
+          `DTSTART:${ymd}T190000Z`,
+          `DTEND:${ymd}T210000Z`,
+          `SUMMARY:Janitou Dîner — ${name}`,
+          `DESCRIPTION:${desc.replace(/\n/g, ' ')}`,
+          'STATUS:CONFIRMED',
+          'END:VEVENT'
+        );
+      }
+    }
+
+    icalLines.push('END:VCALENDAR');
+    return icalLines.join('\r\n');
+  }
+
+  // ========================================================
+  // Phase 2 — Comptabilité Avancée & Registre Immuable (06)
+  // ========================================================
+  public recordLedgerEntry(entry: {
+    type: ImmutableLedgerEntry['type'];
+    referenceId: string;
+    customerId: string;
+    customerName: string;
+    debit: number;
+    credit: number;
+    notes?: string;
+  }): ImmutableLedgerEntry {
+    const lastEntry = this.ledgerEntries[this.ledgerEntries.length - 1];
+    const previousHash = lastEntry ? lastEntry.currentHash : 'GENESIS_HASH_JANITOU_0000000000000000';
+    const entryNumber = this.ledgerEntries.length + 1;
+    const timestamp = new Date().toISOString();
+    const previousBalance = lastEntry ? lastEntry.balanceAfter : 0;
+    const balanceAfter = previousBalance + entry.credit - entry.debit;
+
+    const dataToHash = `${entryNumber}|${timestamp}|${entry.type}|${entry.referenceId}|${entry.customerId}|${entry.debit}|${entry.credit}|${balanceAfter}|${previousHash}`;
+    const currentHash = sha256(dataToHash);
+
+    const record: ImmutableLedgerEntry = {
+      id: `ledg-${Date.now()}-${entryNumber}`,
+      entryNumber,
+      timestamp,
+      type: entry.type,
+      referenceId: entry.referenceId,
+      customerId: entry.customerId,
+      customerName: entry.customerName,
+      debit: entry.debit,
+      credit: entry.credit,
+      balanceAfter,
+      notes: entry.notes || '',
+      previousHash,
+      currentHash,
+    };
+
+    this.ledgerEntries.push(record);
+    this.persist();
+    return record;
+  }
+
+  public getLedgerEntries(limit = 100): ImmutableLedgerEntry[] {
+    return this.ledgerEntries.slice(-limit).reverse();
+  }
+
+  public verifyLedgerIntegrity(): LedgerVerificationResult {
+    let prevHash = 'GENESIS_HASH_JANITOU_0000000000000000';
+    for (const entry of this.ledgerEntries) {
+      if (entry.previousHash !== prevHash) {
+        return {
+          isValid: false,
+          totalEntries: this.ledgerEntries.length,
+          chainIntact: false,
+          lastHash: entry.currentHash,
+          tamperedEntryId: entry.id,
+        };
+      }
+      const expectedData = `${entry.entryNumber}|${entry.timestamp}|${entry.type}|${entry.referenceId}|${entry.customerId}|${entry.debit}|${entry.credit}|${entry.balanceAfter}|${entry.previousHash}`;
+      const computed = sha256(expectedData);
+      if (computed !== entry.currentHash) {
+        return {
+          isValid: false,
+          totalEntries: this.ledgerEntries.length,
+          chainIntact: false,
+          lastHash: entry.currentHash,
+          tamperedEntryId: entry.id,
+        };
+      }
+      prevHash = entry.currentHash;
+    }
+    return {
+      isValid: true,
+      totalEntries: this.ledgerEntries.length,
+      chainIntact: true,
+      lastHash: prevHash,
+    };
   }
 }
 

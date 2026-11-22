@@ -1,5 +1,6 @@
 import type { IncomingMessage } from 'node:http';
 import { janitouStore } from '../../services/store.js';
+import { verifyPin } from '../../services/pin.js';
 import type { DbStaffUser } from '../../data/mock-db.js';
 
 export async function createStaffSession(userId: string): Promise<string> {
@@ -19,4 +20,15 @@ export function authenticatedStaff(req: IncomingMessage): DbStaffUser | undefine
   if (!userId) return undefined;
   const user = janitouStore.getStaffUserById(userId);
   return user?.isActive ? user : undefined;
+}
+
+/**
+ * Re-authentication for destructive operations (backup, restore, role
+ * changes). The password is sent in `X-Reauth-Password` over TLS and never
+ * stored; a stolen session alone is not enough to wipe or exfiltrate data.
+ */
+export function reauthenticate(req: IncomingMessage, user: DbStaffUser): boolean {
+  const password = req.headers['x-reauth-password'];
+  if (typeof password !== 'string' || password.length === 0) return false;
+  return verifyPin(password, user.passwordSalt, user.passwordHash);
 }

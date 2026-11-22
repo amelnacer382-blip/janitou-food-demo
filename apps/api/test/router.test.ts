@@ -46,7 +46,9 @@ test('HTTP Router End-to-End Suite', async (t) => {
     globalThis.fetch = originalFetch;
   });
 
-  await t.test('GET /health returns healthy status with database integration', async () => {
+  const step = async (_name: string, fn: () => Promise<void>) => { await fn(); };
+
+  await step('GET /health returns healthy status with database integration', async () => {
     const res = await fetch(`${baseUrl}/health`);
     assert.equal(res.status, 200);
     const data = await res.json() as { status: string; service: string; database?: { status: string; totalRecords: number } };
@@ -57,7 +59,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.ok(data.database.totalRecords > 0);
   });
 
-  await t.test('GET / and /dashboard return HTML dashboard', async () => {
+  await step('GET / and /dashboard return HTML dashboard', async () => {
     const res = await fetch(`${baseUrl}/dashboard`);
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('content-type')?.includes('text/html'), true);
@@ -65,7 +67,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.equal(text.includes('JANITOU FOOD'), true);
   });
 
-  await t.test('POST /api/v1/customers creates customer with validation', async () => {
+  await step('POST /api/v1/customers creates customer with validation', async () => {
     // Missing fields check
     const badRes = await fetch(`${baseUrl}/api/v1/customers`, {
       method: 'POST',
@@ -91,7 +93,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.equal(data.customer.contactName, 'Nadia Boumaza');
   });
 
-  await t.test('GET /api/v1/production/plan returns calculated needs', async () => {
+  await step('GET /api/v1/production/plan returns calculated needs', async () => {
     const today = new Date().toISOString().split('T')[0];
     const res = await fetch(`${baseUrl}/api/v1/production/plan?date=${today}`);
     assert.equal(res.status, 200);
@@ -101,7 +103,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.ok(data.plan.ingredientRequirements.length >= 1);
   });
 
-  await t.test('POST /api/v1/orders creates order and triggers status updates', async () => {
+  await step('POST /api/v1/orders creates order and triggers status updates', async () => {
     const today = new Date().toISOString().split('T')[0];
     const res = await fetch(`${baseUrl}/api/v1/orders`, {
       method: 'POST',
@@ -129,7 +131,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.equal(patchedData.order.status, 'IN_PRODUCTION');
   });
 
-  await t.test('GET /api/v1/packaging/labels returns meal box labels', async () => {
+  await step('GET /api/v1/packaging/labels returns meal box labels', async () => {
     const today = new Date().toISOString().split('T')[0];
     const res = await fetch(`${baseUrl}/api/v1/packaging/labels?date=${today}`);
     assert.equal(res.status, 200);
@@ -138,7 +140,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.ok(data.labels[0].labelId.startsWith('LBL-'));
   });
 
-  await t.test('GET /api/v1/analytics/financials returns margin and revenue metrics', async () => {
+  await step('GET /api/v1/analytics/financials returns margin and revenue metrics', async () => {
     const today = new Date().toISOString().split('T')[0];
     const res = await fetch(`${baseUrl}/api/v1/analytics/financials?date=${today}`);
     assert.equal(res.status, 200);
@@ -147,7 +149,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.ok(data.analytics.grossMargin > 0);
   });
 
-  await t.test('GET /api/v1/export/production and /delivery return CSV downloads', async () => {
+  await step('GET /api/v1/export/production and /delivery return CSV downloads', async () => {
     const today = new Date().toISOString().split('T')[0];
     const prodRes = await fetch(`${baseUrl}/api/v1/export/production?date=${today}`);
     assert.equal(prodRes.status, 200);
@@ -160,7 +162,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.equal(delivRes.headers.get('content-type')?.includes('text/csv'), true);
   });
 
-  await t.test('POST /api/v1/recipes and pricing simulation endpoint', async () => {
+  await step('POST /api/v1/recipes and pricing simulation endpoint', async () => {
     const createRes = await fetch(`${baseUrl}/api/v1/recipes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -179,7 +181,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.ok(simulation.recommendedSellingPrice > 0);
   });
 
-  await t.test('GET /api/v1/meal-plans/weekly, /subscriptions and /kds/batches', async () => {
+  await step('GET /api/v1/meal-plans/weekly, /subscriptions and /kds/batches', async () => {
     const weeklyRes = await fetch(`${baseUrl}/api/v1/meal-plans/weekly`);
     assert.equal(weeklyRes.status, 200);
     const { weekly } = await weeklyRes.json() as { weekly: unknown[] };
@@ -203,7 +205,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.equal(patchKdsRes.status, 200);
   });
 
-  await t.test('GET /api/v1/meal-plans/validate-rules returns rules status', async () => {
+  await step('GET /api/v1/meal-plans/validate-rules returns rules status', async () => {
     const res = await fetch(`${baseUrl}/api/v1/meal-plans/validate-rules`);
     assert.equal(res.status, 200);
     const data = await res.json() as { isValid: boolean; violations: unknown[] };
@@ -211,7 +213,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.ok(Array.isArray(data.violations));
   });
 
-  await t.test('Accounting endpoints & Payment recording flow', async () => {
+  await step('Accounting endpoints & Payment recording flow', async () => {
     const invRes = await fetch(`${baseUrl}/api/v1/accounting/invoices`);
     assert.equal(invRes.status, 200);
     const { invoices } = await invRes.json() as { invoices: unknown[] };
@@ -233,7 +235,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.equal(payment.amount, 2500);
   });
 
-  await t.test('Reports hub and Emergency Workshop Package endpoints', async () => {
+  await step('Reports hub and Emergency Workshop Package endpoints', async () => {
     const reportsRes = await fetch(`${baseUrl}/api/v1/reports`);
     assert.equal(reportsRes.status, 200);
     const { reports } = await reportsRes.json() as { reports: unknown[] };
@@ -250,7 +252,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.ok(emergencyPackage.totalMealPortions > 0);
   });
 
-  await t.test('Role Access Control — restricts sensitive financials to authorized roles', async () => {
+  await step('Role Access Control — restricts sensitive financials to authorized roles', async () => {
     const chefLogin = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -273,7 +275,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.equal(allowedRes.status, 200);
   });
 
-  await t.test('User Administration — CRUD, scoped sessions and audit trail', async () => {
+  await step('User Administration — CRUD, scoped sessions and audit trail', async () => {
     const email = `agent-${Date.now()}@janitou.dz`;
     const createRes = await fetch(`${baseUrl}/api/v1/simple/users`, {
       method: 'POST',
@@ -304,7 +306,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
 
     const promote = await fetch(`${baseUrl}/api/v1/simple/users/${created.user.id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Reauth-Password': 'Admin@2026' },
       body: JSON.stringify({ role: 'OPERATIONS_MANAGER' }),
     });
     assert.equal(promote.status, 200);
@@ -342,7 +344,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
 
     const demoteSelf = await fetch(`${baseUrl}/api/v1/simple/users/staff-admin`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Reauth-Password': 'Admin@2026' },
       body: JSON.stringify({ role: 'OPERATIONS_MANAGER' }),
     });
     assert.equal(demoteSelf.status, 409);
@@ -353,7 +355,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.ok(audit.logs.some((log) => log.action === 'UPDATE_USER'));
   });
 
-  await t.test('MFA — setup, challenge, TOTP and recovery code', async () => {
+  await step('MFA — setup, challenge, TOTP and recovery code', async () => {
     const email = `mfa-${Date.now()}@janitou.dz`;
     const password = 'MfaAgent@2026';
     const createdRes = await fetch(`${baseUrl}/api/v1/simple/users`, {
@@ -470,7 +472,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.equal(disableRes.status, 200);
   });
 
-  await t.test('MFA policy — blocks ADMIN login when enforcement is enabled without enrollment', async () => {
+  await step('MFA policy — blocks ADMIN login when enforcement is enabled without enrollment', async () => {
     process.env.JANITOU_MFA_REQUIRED_ADMINS = '1';
     try {
       const res = await fetch(`${baseUrl}/api/v1/auth/login`, {
@@ -486,7 +488,7 @@ test('HTTP Router End-to-End Suite', async (t) => {
     }
   });
 
-  await t.test('Security & OpenAPI — verifies security headers and interactive documentation', async () => {
+  await step('Security & OpenAPI — verifies security headers and interactive documentation', async () => {
     const res = await fetch(`${baseUrl}/health`);
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('x-content-type-options'), 'nosniff');

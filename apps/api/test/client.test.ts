@@ -38,10 +38,13 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
   const staffToken = staffLoginBody.token;
 
   const json = async (path: string, init?: RequestInit) => {
-    const staffHeaders = path.startsWith('/api/v1/simple')
+    const staffHeaders: Record<string, string> = path.startsWith('/api/v1/simple')
       ? { Authorization: `Bearer ${staffToken}` }
       : {};
-    const headers = { ...staffHeaders, ...(init?.headers || {}) };
+    const headers: Record<string, string> = {
+      ...staffHeaders,
+      ...(init?.headers as Record<string, string> | undefined),
+    };
     const res = await fetch(`${base}${path}`, { ...init, headers });
     return { res, body: await res.json() };
   };
@@ -50,7 +53,9 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(init.headers || {}) },
   });
 
-  await t.test('GET /client serves the customer app', async () => {
+  const step = async (_name: string, fn: () => Promise<void>) => { await fn(); };
+
+  await step('GET /client serves the customer app', async () => {
     const res = await fetch(`${base}/client`);
     assert.equal(res.status, 200);
     const html = await res.text();
@@ -58,7 +63,7 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
     assert.ok(html.includes('/client/manifest.webmanifest'));
   });
 
-  await t.test('menu is published with prices and alternatives', async () => {
+  await step('menu is published with prices and alternatives', async () => {
     const { res, body } = await json(`/api/v1/client/menu?from=${isoToday()}&to=${isoToday()}`);
     assert.equal(res.status, 200);
     assert.equal(body.days.length, 1);
@@ -71,7 +76,7 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
     assert.equal(typeof day.orderDeadline, 'string');
   });
 
-  await t.test('self-registration is disabled', async () => {
+  await step('self-registration is disabled', async () => {
     const res = await json('/api/v1/client/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -85,7 +90,7 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
     assert.equal(res.res.status, 403);
   });
 
-  await t.test('admin creates an active account and the client can log in', async () => {
+  await step('admin creates an active account and the client can log in', async () => {
     const created = await json('/api/v1/simple/clients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -129,7 +134,7 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
     assert.equal(login.body.account.accountStatus, 'ACTIVE');
   });
 
-  await t.test('catalogue exposes all active dishes and can be ordered directly', async () => {
+  await step('catalogue exposes all active dishes and can be ordered directly', async () => {
     const catalogue = await json('/api/v1/client/catalogue');
     assert.equal(catalogue.res.status, 200);
     assert.ok(Array.isArray(catalogue.body.dishes));
@@ -194,7 +199,7 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
     assert.equal(catalogueOrder.items.length, 2);
   });
 
-  await t.test('a guest order stays pending until admin approval', async () => {
+  await step('a guest order stays pending until admin approval', async () => {
     const catalogue = await json('/api/v1/client/catalogue');
     const dish = catalogue.body.dishes[0] as { id: string; price: number };
     const settings = (await json('/api/v1/client/config')).body.settings;
@@ -280,7 +285,7 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
     );
   });
 
-  await t.test('an active customer can order with packaging, alternatives and extras', async () => {
+  await step('an active customer can order with packaging, alternatives and extras', async () => {
     const settings = await json('/api/v1/simple/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -333,7 +338,7 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
     assert.ok(orders.body.orders.some((order: { orderNumber: string }) => order.orderNumber === placed.body.order.orderNumber));
   });
 
-  await t.test('weekly program generates orders and they can be edited or cancelled', async () => {
+  await step('weekly program generates orders and they can be edited or cancelled', async () => {
     const phone = '0699 00 11 23';
     const created = await json('/api/v1/simple/clients', {
       method: 'POST',
@@ -417,7 +422,7 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
     assert.equal(regeneration.body.generatedCount, 0);
   });
 
-  await t.test('closed dates, deadline overrides and extra caps are enforced', async () => {
+  await step('closed dates, deadline overrides and extra caps are enforced', async () => {
     const login = await json('/api/v1/client/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -494,7 +499,7 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
     assert.equal(capped.res.status, 201);
   });
 
-  await t.test('prepaid billing, profile, distribution and notifications', async () => {
+  await step('prepaid billing, profile, distribution and notifications', async () => {
     const phone = '0699 00 11 22';
     const login = await json('/api/v1/client/login', {
       method: 'POST',
@@ -607,7 +612,7 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
     assert.equal(updated.distribution.type, 'EXPRESS');
   });
 
-  await t.test('missing quantities, packaging and closed days are rejected', async () => {
+  await step('missing quantities, packaging and closed days are rejected', async () => {
     const login = await json('/api/v1/client/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -660,7 +665,7 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
     assert.equal(anonymous.res.status, 401);
   });
 
-  await t.test('suspending the account blocks new orders', async () => {
+  await step('suspending the account blocks new orders', async () => {
     const clients = await json('/api/v1/simple/clients');
     const client = clients.body.clients.find((entry: { phone: string }) => entry.phone === '0699 00 11 22');
     await json(`/api/v1/simple/clients/${client.id}/status`, {

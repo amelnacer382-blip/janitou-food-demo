@@ -47,6 +47,8 @@ export interface DbRecipe {
   photoUrl?: string;
   /** Reference selling price in DZD, used by the customer app and alternatives. */
   price?: number;
+  /** Monotonic technical version, incremented on every edit. */
+  version?: number;
   /** Inactive dishes stay archived but cannot be ordered. */
   isActive?: boolean;
   /** Operational family used by extras rules and menu alerts. */
@@ -91,6 +93,8 @@ export interface DbCustomer {
     dinnerPackaging?: 'INDIVIDUAL' | 'COLLECTIVE';
   }[];
   accountBalance: number; // in DZD (solde prépayé/crédit)
+  /** Default percentage discount applied to new invoices (0-100). */
+  discountPercent?: number;
   whatsAppLink: string;
   subscriptionType: 'INDIVIDUAL' | 'CORPORATE' | 'SUBSIDIARY';
   preferredDistributionType: 'STANDARD_DELIVERY' | 'EXPRESS' | 'PICKUP';
@@ -176,6 +180,11 @@ export interface DbInvoice {
   orderIds: string[];
   issueDate: string;
   dueDate: string;
+  /** Amount before discount. */
+  subtotal?: number;
+  discountType?: 'PERCENT' | 'FIXED';
+  discountValue?: number;
+  discountAmount?: number;
   totalAmount: number;
   paidAmount: number;
   status: 'DRAFT' | 'ISSUED' | 'PAID' | 'PARTIALLY_PAID' | 'OVERDUE' | 'CANCELLED';
@@ -260,6 +269,83 @@ export interface DbDeliveryRun {
   driverPhone: string;
   status: 'PLANNED' | 'DISPATCHED' | 'COMPLETED';
   stops: DbDeliveryStop[];
+  /** Vehicle assigned to the run, with the load computed from its stops. */
+  vehicleId?: string;
+  vehicleLabel?: string;
+  vehicleType?: 'MOTO' | 'VAN' | 'TRUCK';
+  capacityMaxPortions?: number;
+  loadPortions?: number;
+}
+
+export interface DbVehicle {
+  id: string;
+  label: string;
+  type: 'MOTO' | 'VAN' | 'TRUCK';
+  capacityMaxPortions: number;
+  isActive: boolean;
+  plate?: string;
+}
+
+export type WorkshopStation = 'CHAUD' | 'FROID' | 'PATISSERIE' | 'CONDITIONNEMENT';
+
+export interface DbWorkshop {
+  id: string;
+  name: string;
+  station: WorkshopStation;
+  capacityPortions: number;
+  isActive: boolean;
+  notes?: string;
+}
+
+export interface DbWorkOrderStep {
+  name: string;
+  done: boolean;
+  doneAt?: string;
+}
+
+export interface DbWorkOrder {
+  id: string;
+  date: string; // YYYY-MM-DD
+  serviceTime: MealServiceTime;
+  recipeId: string;
+  recipeName: string;
+  station: WorkshopStation;
+  workshopId?: string;
+  plannedPortions: number;
+  producedPortions: number;
+  status: 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED';
+  steps: DbWorkOrderStep[];
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DbRecipeVersion {
+  id: string;
+  recipeId: string;
+  version: number;
+  snapshot: DbRecipe;
+  createdAt: string;
+  createdBy?: string;
+}
+
+export type AlternativeType = 'PERMANENT' | 'LIMITED' | 'RESERVATION';
+
+export interface DbAlternative {
+  id: string;
+  recipeId: string;
+  /** Optional customer restriction; empty means available to every client. */
+  customerId?: string;
+  type: AlternativeType;
+  /** Specific selling price; falls back to the dish reference price. */
+  price?: number;
+  maxPortions?: number;
+  remainingPortions?: number;
+  station?: WorkshopStation;
+  isActive: boolean;
+  validFrom?: string;
+  validTo?: string;
+  createdAt: string;
 }
 
 // Initial Realistic Seed Data for JANITOU FOOD
@@ -587,5 +673,67 @@ export const initialOrders: DbOrder[] = [
     supplementsCost: 0,
     totalPrice: 1700,
     isPaid: false,
+  },
+];
+
+export const initialWorkshops: DbWorkshop[] = [
+  {
+    id: 'workshop-chaud',
+    name: 'Atelier Chaud',
+    station: 'CHAUD',
+    capacityPortions: 240,
+    isActive: true,
+    notes: 'Cuisson des plats principaux et accompagnements chauds.',
+  },
+  {
+    id: 'workshop-froid',
+    name: 'Atelier Froid',
+    station: 'FROID',
+    capacityPortions: 180,
+    isActive: true,
+    notes: 'Entrées, salades et préparations froides.',
+  },
+  {
+    id: 'workshop-patisserie',
+    name: 'Pâtisserie',
+    station: 'PATISSERIE',
+    capacityPortions: 140,
+    isActive: true,
+    notes: 'Desserts et pâtisseries.',
+  },
+  {
+    id: 'workshop-conditionnement',
+    name: 'Conditionnement',
+    station: 'CONDITIONNEMENT',
+    capacityPortions: 400,
+    isActive: true,
+    notes: 'Mise en barquette, étiquetage et contrôle.',
+  },
+];
+
+export const initialVehicles: DbVehicle[] = [
+  {
+    id: 'vehicle-van-1',
+    label: 'Van Frigorifique 1',
+    type: 'VAN',
+    capacityMaxPortions: 120,
+    isActive: true,
+    plate: '16-1234-119',
+  },
+  {
+    id: 'vehicle-moto-1',
+    label: 'Moto Express 1',
+    type: 'MOTO',
+    capacityMaxPortions: 40,
+    isActive: true,
+    plate: '16-5678-119',
+  },
+  {
+    id: 'vehicle-truck-1',
+    label: 'Camion 3,5T',
+    type: 'TRUCK',
+    capacityMaxPortions: 400,
+    isActive: true,
+    plate: '16-9012-119',
   },
 ];

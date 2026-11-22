@@ -1,7 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { MealServiceTime } from '@janitou/common';
 import { readJsonBody, sendJson, sendError } from '../common/http.js';
+import { authenticatedStaff } from '../auth/session.js';
 import { janitouStore } from '../../services/store.js';
+import type { DbVehicle } from '../../data/mock-db.js';
 
 export async function handleDeliveryRoutes(
   req: IncomingMessage,
@@ -10,6 +12,27 @@ export async function handleDeliveryRoutes(
   method: string,
   searchParams: URLSearchParams
 ): Promise<boolean> {
+  // Advanced Delivery Run Optimization (Phase 2 - 05)
+  if (pathname === '/api/v1/delivery/optimize-runs' && method === 'POST') {
+    const body = await readJsonBody<{
+      date: string;
+      serviceTime: MealServiceTime;
+      persist?: boolean;
+    }>(req);
+
+    if (!body.date || !body.serviceTime) {
+      sendError(res, 400, 'Validation Error', 'date and serviceTime are required.');
+      return true;
+    }
+
+    const optimization = janitouStore.optimizeDeliveryRuns(
+      body.date,
+      body.serviceTime,
+      Boolean(body.persist)
+    );
+    sendJson(res, 200, { optimization });
+    return true;
+  }
   // Delivery runs collection
   if (pathname === '/api/v1/delivery/runs') {
     if (method === 'GET') {
@@ -93,6 +116,115 @@ export async function handleDeliveryRoutes(
       run: transferred,
       message: `Tournée transférée avec succès à ${body.newDriverName}.`,
     });
+    return true;
+  }
+
+  const actor = authenticatedStaff(req);
+  const actorRef = actor ? { id: actor.id, name: actor.fullName } : undefined;
+
+  // Vehicles and capacity
+  if (pathname === '/api/v1/delivery/vehicles') {
+    if (method === 'GET') {
+      sendJson(res, 200, { vehicles: janitouStore.getVehicles() });
+      return true;
+    }
+    if (method === 'POST') {
+      const body = await readJsonBody<{
+        label?: string;
+        type?: DbVehicle['type'];
+        capacityMaxPortions?: number;
+        plate?: string;
+      }>(req);
+      if (!body.label || !body.type || !body.capacityMaxPortions) {
+        sendError(res, 400, 'Validation Error', 'label, type et capacityMaxPortions sont requis.');
+        return true;
+      }
+      try {
+        const vehicle = janitouStore.createVehicle(
+          {
+            label: body.label,
+            type: body.type,
+            capacityMaxPortions: body.capacityMaxPortions,
+            plate: body.plate,
+          },
+          actorRef
+        );
+        sendJson(res, 201, { vehicle });
+      } catch (error) {
+        sendError(res, 400, 'Validation Error', error instanceof Error ? error.message : 'Véhicule invalide.');
+      }
+      return true;
+    }
+  }
+
+  const vehicleMatch = pathname.match(/^\/api\/v1\/delivery\/vehicles\/([^/]+)$/);
+  if (vehicleMatch && method === 'PATCH') {
+    const body = await readJsonBody<{
+      label?: string;
+      type?: DbVehicle['type'];
+      capacityMaxPortions?: number;
+      isActive?: boolean;
+      plate?: string;
+    }>(req);
+    try {
+      const vehicle = janitouStore.updateVehicle(
+        vehicleMatch[1],
+        {
+          label: body.label,
+          type: body.type,
+          capacityMaxPortions: body.capacityMaxPortions,
+          isActive: body.isActive,
+          plate: body.plate,
+        },
+        actorRef
+      );
+      if (!vehicle) {
+        sendError(res, 404, 'Not Found', `Véhicule '${vehicleMatch[1]}' introuvable.`);
+        return true;
+      }
+      sendJson(res, 200, { vehicle });
+    } catch (error) {
+      sendError(res, 400, 'Validation Error', error instanceof Error ? error.message : 'Véhicule invalide.');
+    }
+    return true;
+  }
+
+  const runLoadMatch = pathname.match(/^\/api\/v1\/delivery\/runs\/([^/]+)\/load$/);
+  if (runLoadMatch && method === 'GET') {
+    const run = janitouStore.getDeliveryRuns().find((entry) => entry.id === runLoadMatch[1]);
+    if (!run) {
+      sendError(res, 404, 'Not Found', `Tournée '${runLoadMatch[1]}' introuvable.`);
+      return true;
+    }
+    sendJson(res, 200, {
+      runId: run.id,
+      loadPortions: janitouStore.calculateRunLoad(run.id),
+      capacityMaxPortions: run.capacityMaxPortions,
+      vehicle: run.vehicleLabel,
+    });
+    return true;
+  }
+
+  const assignVehicleMatch = pathname.match(/^\/api\/v1\/delivery\/runs\/([^/]+)\/assign-vehicle$/);
+  if (assignVehicleMatch && method === 'POST') {
+    const body = await readJsonBody<{ vehicleId?: string }>(req);
+    if (!body.vehicleId) {
+      sendError(res, 400, 'Validation Error', 'vehicleId est requis.');
+      return true;
+    }
+    try {
+      const run = janitouStore.assignVehicleToRun(assignVehicleMatch[1], body.vehicleId, actorRef);
+      if (!run) {
+        sendError(res, 404, 'Not Found', `Tournée '${assignVehicleMatch[1]}' introuvable.`);
+        return true;
+      }
+      sendJson(res, 200, {
+        run,
+        loadPortions: janitouStore.calculateRunLoad(run.id),
+      });
+    } catch (error) {
+      sendError(res, 400, 'Validation Error', error instanceof Error ? error.message : 'Affectation invalide.');
+    }
     return true;
   }
 

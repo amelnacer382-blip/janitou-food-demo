@@ -9,10 +9,22 @@ services:
       PORT: 4000
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?schema=public
       JANITOU_STORAGE: postgres
+      JANITOU_MFA_REQUIRED_ADMINS: ${JANITOU_MFA_REQUIRED_ADMINS:-0}
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       BACKUP_RETENTION: ${BACKUP_RETENTION:-14}
+      MESSAGING_ENABLED: ${MESSAGING_ENABLED:-1}
+      MESSAGING_CHANNEL: ${MESSAGING_CHANNEL:-WHATSAPP}
+      MESSAGING_DEFAULT_COUNTRY_CODE: ${MESSAGING_DEFAULT_COUNTRY_CODE:-213}
+      WHATSAPP_CLOUD_TOKEN: ${WHATSAPP_CLOUD_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_TEMPLATE_NAME: ${WHATSAPP_TEMPLATE_NAME:-}
+      WHATSAPP_TEMPLATE_LANG: ${WHATSAPP_TEMPLATE_LANG:-ar}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
     volumes:
       - janitou_backups:/app/data/backups
+      - janitou_uploads:/app/data/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,5 +73,7 @@ volumes:
     name: janitou_food_prod_postgres
   janitou_backups:
     name: janitou_food_prod_backups
+  janitou_uploads:
+    name: janitou_food_prod_uploads
   certbot_webroot:
   letsencrypt:

@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { setSecurityHeaders, sendError, checkRateLimit } from './modules/common/http.js';
+import { canAccessLegacy } from './modules/common/policy.js';
 import { handleCustomerRoutes } from './modules/customers/routes.js';
 import { handleRecipeRoutes } from './modules/recipes/routes.js';
 import { handleMenuRoutes } from './modules/menus/routes.js';
@@ -22,6 +23,7 @@ const PUBLIC_API_PREFIXES = [
   '/api/v1/client',
   '/api/v1/simple',
   '/api/v1/openapi.json',
+  '/api/v1/meal-plans/calendar.ics',
 ];
 
 const STATIC_MIME_TYPES: Record<string, string> = {
@@ -250,6 +252,10 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
         return;
       }
       (req as IncomingMessage & { staffRole?: string }).staffRole = staff.role;
+      if (!canAccessLegacy(staff.role, pathname, method)) {
+        sendError(res, 403, 'Forbidden', 'Permission insuffisante pour ce module.');
+        return;
+      }
     }
 
     // ----------------------------------------------------

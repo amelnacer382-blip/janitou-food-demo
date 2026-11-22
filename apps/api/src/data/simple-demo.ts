@@ -133,6 +133,8 @@ export interface SimpleSettings {
   closedDates: string[];
   /** Per-date deadline overrides (ISO datetime), BR-011. */
   deadlineOverrides: Record<string, string>;
+  /** Number of individual meals packed in one collective crate. */
+  collectivePackagingSize: number;
 }
 
 export const DEFAULT_SIMPLE_SETTINGS: SimpleSettings = {
@@ -150,6 +152,7 @@ export const DEFAULT_SIMPLE_SETTINGS: SimpleSettings = {
   cutoffDaysBefore: 1,
   closedDates: [],
   deadlineOverrides: {},
+  collectivePackagingSize: 10,
 };
 
 export interface SimpleDishView {

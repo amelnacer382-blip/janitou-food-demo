@@ -1,7 +1,7 @@
 # JANITOU FOOD
 
 [![Release](https://img.shields.io/badge/Release-v1.0.0--phase1-059669.svg?style=flat-square)](https://github.com/janitoufood/janitou-food-management/releases/tag/v1.0.0-phase1)
-[![Automated Tests](https://img.shields.io/badge/Tests-23%20Passed%20(100%25)-10b981.svg?style=flat-square)](https://github.com/janitoufood/janitou-food-management)
+[![Automated Tests](https://img.shields.io/badge/Tests-34%20Passed%20(100%25)-10b981.svg?style=flat-square)](https://github.com/janitoufood/janitou-food-management)
 [![TypeScript](https://img.shields.io/badge/TypeScript-ES2022-3178c6.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Database](https://img.shields.io/badge/PostgreSQL-16%20Prisma-336791.svg?style=flat-square)](https://www.postgresql.org/)
 [![Runtime](https://img.shields.io/badge/Runtime-Node.js%20%7C%20Bun-fbf0df.svg?style=flat-square)](https://bun.sh/)
@@ -147,13 +147,41 @@ GET   /api/v1/auth/mfa                     MFA status for the current user
 POST  /api/v1/auth/mfa/setup|enable|disable TOTP enrollment and recovery codes
 ```
 
+Phase 1 operational endpoints (ADMIN/OPERATIONS_MANAGER unless noted):
+
+```text
+GET   /api/v1/production/workshops              workshops, stations and capacities
+POST  /api/v1/production/workshops              create a workshop
+PATCH /api/v1/production/workshops/:id          capacity / station / activation
+GET   /api/v1/production/work-orders            work orders (date, service)
+POST  /api/v1/production/work-orders/generate   create from the validated production plan
+PATCH /api/v1/production/work-orders/:id        planned/produced quantities, steps, status, workshop
+GET   /api/v1/production/variance               planned vs produced, surplus/shortage + proposals
+GET   /api/v1/delivery/vehicles                 fleet and capacities
+POST/PATCH /api/v1/delivery/vehicles[/:id]      create/update a vehicle
+GET   /api/v1/delivery/runs/:id/load            computed load for a run
+POST  /api/v1/delivery/runs/:id/assign-vehicle  assign a vehicle with capacity check
+GET   /api/v1/recipes/:id/versions              recipe version history
+PUT   /api/v1/recipes/:id                       edit a recipe (snapshots the previous version)
+PATCH /api/v1/recipes/:id/reference-price       adjust the reference selling price
+GET/POST /api/v1/alternatives                   permanent/limited/reservation alternatives
+PATCH /api/v1/alternatives/:id                  price, quantity, validity, activation
+POST  /api/v1/alternatives/:id/reserve          reserve portions
+POST  /api/v1/meal-plans/propose                propose a 7-day menu (rules + human validation)
+PATCH /api/v1/accounting/invoices/:id/discount  invoice discount (PERCENT or FIXED)
+PATCH /api/v1/customers/:id/discount            permanent customer discount on new invoices
+```
+
+Backup/restore requires an ADMIN session **and** the `X-Reauth-Password` header (the account password). The restore payload is validated, restores every domain collection, keeps at least one active administrator, drops orphaned sessions, and writes an audit entry. Backup files are created with `0600` permissions in a `0700` directory and are retained for 14 days by default.
+
 Provisional choices to confirm with the client before production:
 
 - **Customer authentication:** 4-digit PIN; sessions are persisted as hashed tokens and survive restarts — the project documents do not yet define the customer authentication mechanism.
-- **Staff authentication:** password + role implemented; MFA, trusted devices, active-session management and the 2-year audit retention policy are not implemented yet.
-- **Legacy dashboard:** now requires a staff session, but its fine-grained role checks still read the spoofable `x-user-role` header; the UI locks the role selector to ADMIN until that matrix is migrated.
+- **Staff authentication:** password + scrypt, session-derived roles, optional TOTP MFA with recovery codes, active-session administration, password re-authentication for backup/restore and role/password changes, and the 2-year audit retention policy are implemented. Trusted-device management remains open.
+- **Legacy dashboard:** requires a staff session and now enforces a server-side role matrix per module (`modules/common/policy.ts`); the spoofable `x-user-role` header is no longer trusted.
 - **Order cutoff:** configurable in the manager app; default closes orders at 18:00 one day before delivery, with per-date extension (BR-011) and closed dates (BR-012).
-- **Extras:** each extra has a per-meal ratio and optional dish families; the suggestion combines lunch, dinner and alternatives, and the customer can only reduce it (BR-016→018). Per-customer extra overrides (BR-019) and limited-quantity alternatives/preorders (BR-034→036) are not implemented yet.
+- **Extras:** each extra has a per-meal ratio and optional dish families; the suggestion combines lunch, dinner and alternatives, and the customer can only reduce it (BR-016→018). Per-customer extra overrides (BR-019) remain open.
+- **Alternatives:** permanent, limited and reservation-based alternatives are implemented with a specific price, remaining quantity, validity window and optional workshop routing. Limited alternatives block the order when exhausted instead of silently falling back to list price.
 - **Menu rules:** fries/minced meat same day, pasta once per week, Saturday preparation, same main ingredient — returned as alerts; the manager decides (BR-020→027).
 - **Zero-quantity orders:** archived as cancelled and excluded from production/distribution (BR-013).
 - **Alternatives:** any active dish except the day's lunch/dinner, priced by its reference price.
@@ -204,7 +232,11 @@ docker run --rm -p 80:80 \
 docker compose --env-file .env.production -f deploy/docker-compose.prod.yml up -d --build
 ```
 
-The container entrypoint applies `prisma migrate deploy` before starting the API. CI (`.github/workflows/ci.yml`) runs the tests against PostgreSQL 16, then verifies auth, dashboard protection, persistence across a restart, and session survival over HTTP.
+The container entrypoint applies `prisma migrate deploy` before starting the API. CI (`.github/workflows/ci.yml`) runs the tests against PostgreSQL 16, then verifies auth, role enforcement, backup/restore validation and the health endpoint over HTTP.
+
+Fresh Ubuntu VPS: `sudo bash deploy/vps-provision.sh` installs Docker, UFW and fail2ban, then prints the certificate and deployment steps. The production compose stack persists both `data/backups` and `data/uploads` in named volumes, so dish photos survive redeploys.
+
+Backup and restore require an ADMIN session plus the `X-Reauth-Password` header; the restore payload is validated and audited. See `docs/PHASE1_ACCEPTANCE.md` for the full acceptance dossier.
 
 ## Key Platform Modules
 

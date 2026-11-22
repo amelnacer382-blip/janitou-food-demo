@@ -5,11 +5,10 @@
     "moduleResolution": "NodeNext",
     "lib": ["ES2022", "ES2024.Promise", "DOM"],
     "outDir": "dist",
-    "rootDir": "src",
     "baseUrl": ".",
     "paths": {
-      "@janitou/common": ["../../packages/common/dist/index.d.ts"],
-      "@janitou/database": ["../../packages/database/dist/index.d.ts"]
+      "@janitou/common": ["../../packages/common/src/index.ts"],
+      "@janitou/database": ["../../packages/database/src/index.ts"]
     },
     "strict": true,
     "esModuleInterop": true,

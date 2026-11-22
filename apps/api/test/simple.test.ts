@@ -53,8 +53,9 @@ test('Simple mode API — mobile menu, dishes and settings', async (t) => {
     });
 
   const menuDate = '2026-12-01';
+  const step = async (_name: string, fn: () => Promise<void>) => { await fn(); };
 
-  await t.test('GET /app serves the mobile application shell', async () => {
+  await step('GET /app serves the mobile application shell', async () => {
     const res = await fetch(`${base}/app`);
     assert.equal(res.status, 200);
     assert.match(res.headers.get('content-type') || '', /text\/html/);
@@ -63,7 +64,7 @@ test('Simple mode API — mobile menu, dishes and settings', async (t) => {
     assert.ok(html.includes('/app/manifest.webmanifest'));
   });
 
-  await t.test('dishes can be listed and created with validation', async () => {
+  await step('dishes can be listed and created with validation', async () => {
     const listed = await json('/api/v1/simple/dishes');
     assert.equal(listed.res.status, 200);
     assert.ok(Array.isArray(listed.body.dishes));
@@ -89,7 +90,7 @@ test('Simple mode API — mobile menu, dishes and settings', async (t) => {
     assert.equal(unsafePhoto.res.status, 400);
   });
 
-  await t.test('a menu day can be created, changed, archived and restored', async () => {
+  await step('a menu day can be created, changed, archived and restored', async () => {
     const created = await post('/api/v1/simple/menu', {
       date: menuDate,
       lunchDishId: 'rec-1',
@@ -124,7 +125,7 @@ test('Simple mode API — mobile menu, dishes and settings', async (t) => {
     assert.equal(visibleAgain.body.days.length, 1);
   });
 
-  await t.test('menu creation rejects unknown dishes and empty selections', async () => {
+  await step('menu creation rejects unknown dishes and empty selections', async () => {
     const unknown = await post('/api/v1/simple/menu', {
       date: '2026-12-02',
       lunchDishId: 'does-not-exist',
@@ -141,7 +142,7 @@ test('Simple mode API — mobile menu, dishes and settings', async (t) => {
     assert.equal(badDate.res.status, 400);
   });
 
-  await t.test('home returns daily stats, menu and orders', async () => {
+  await step('home returns daily stats, menu and orders', async () => {
     const { res, body } = await json(`/api/v1/simple/home?date=${menuDate}`);
     assert.equal(res.status, 200);
     assert.equal(body.date, menuDate);
@@ -151,7 +152,7 @@ test('Simple mode API — mobile menu, dishes and settings', async (t) => {
     assert.equal(body.menu.lunch.id, 'rec-3');
   });
 
-  await t.test('settings can be read and updated, invalid values rejected', async () => {
+  await step('settings can be read and updated, invalid values rejected', async () => {
     const defaults = await json('/api/v1/simple/settings');
     assert.equal(defaults.res.status, 200);
     assert.equal(defaults.body.settings.lunchPrice, 450);
@@ -181,7 +182,7 @@ test('Simple mode API — mobile menu, dishes and settings', async (t) => {
     assert.equal(invalid.res.status, 400);
   });
 
-  await t.test('weekly menu rules produce warnings without blocking creation', async () => {
+  await step('weekly menu rules produce warnings without blocking creation', async () => {
     const first = await post('/api/v1/simple/dishes', {
       name: 'Pâtes test A',
       category: 'MAIN_COURSE',
@@ -222,7 +223,7 @@ test('Simple mode API — mobile menu, dishes and settings', async (t) => {
     );
   });
 
-  await t.test('image upload accepts real images only', async () => {
+  await step('image upload accepts real images only', async () => {
     const png = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
       'base64'

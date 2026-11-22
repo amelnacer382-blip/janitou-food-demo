@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson, sendError } from '../common/http.js';
+import { authenticatedStaff } from '../auth/session.js';
 import { janitouStore } from '../../services/store.js';
 
 export async function handleCustomerRoutes(
@@ -52,6 +53,31 @@ export async function handleCustomerRoutes(
       sendJson(res, 201, { customer });
       return true;
     }
+  }
+
+  const customerDiscountMatch = pathname.match(/^\/api\/v1\/customers\/([^/]+)\/discount$/);
+  if (customerDiscountMatch && method === 'PATCH') {
+    const body = await readJsonBody<{ percent?: number }>(req);
+    if (typeof body.percent !== 'number') {
+      sendError(res, 400, 'Validation Error', 'percent est requis.');
+      return true;
+    }
+    const actor = authenticatedStaff(req);
+    try {
+      const customer = janitouStore.setCustomerDiscount(
+        customerDiscountMatch[1],
+        body.percent,
+        actor ? { id: actor.id, name: actor.fullName } : undefined
+      );
+      if (!customer) {
+        sendError(res, 404, 'Not Found', `Client '${customerDiscountMatch[1]}' introuvable.`);
+        return true;
+      }
+      sendJson(res, 200, { customer });
+    } catch (error) {
+      sendError(res, 400, 'Validation Error', error instanceof Error ? error.message : 'Remise invalide.');
+    }
+    return true;
   }
 
   const customerDetailMatch = pathname.match(/^\/api\/v1\/customers\/([^/]+)$/);

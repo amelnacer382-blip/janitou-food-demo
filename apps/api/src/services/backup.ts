@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import type { JanitouStore } from './store.js';
 
 const DEFAULT_BACKUP_DIR = resolve(process.cwd(), 'data/backups');
-const DEFAULT_RETENTION = 7;
+const DEFAULT_RETENTION = 14;
 
 export async function createBackupFile(
   store: JanitouStore,
@@ -11,10 +11,10 @@ export async function createBackupFile(
   retentionCount = DEFAULT_RETENTION
 ): Promise<string> {
   const backup = store.createDatabaseBackup();
-  await mkdir(directory, { recursive: true });
+  await mkdir(directory, { recursive: true, mode: 0o700 });
   const stamp = backup.timestamp.replace(/[:.]/g, '-');
   const filePath = join(directory, `backup-${stamp}.json`);
-  await writeFile(filePath, JSON.stringify(backup, null, 2), 'utf-8');
+  await writeFile(filePath, JSON.stringify(backup, null, 2), { encoding: 'utf-8', mode: 0o600 });
   await pruneBackups(directory, retentionCount);
   return filePath;
 }

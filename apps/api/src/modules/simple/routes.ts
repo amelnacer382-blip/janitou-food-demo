@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { ComponentCategory, MealServiceTime } from '@janitou/common';
 import { readJsonBody, readRawBody, sanitizeString, sendError, sendJson } from '../common/http.js';
 import { janitouStore } from '../../services/store.js';
-import { authenticatedStaff } from '../auth/session.js';
+import { authenticatedStaff, reauthenticate } from '../auth/session.js';
 import { hashPin, normalizePhone } from '../../services/pin.js';
 import {
   addDaysIso,
@@ -426,6 +426,7 @@ export async function handleSimpleRoutes(
         cutoffDaysBefore: current.cutoffDaysBefore,
         closedDates: current.closedDates,
         deadlineOverrides: current.deadlineOverrides,
+        collectivePackagingSize: current.collectivePackagingSize,
       };
 
       for (const key of ['lunchPrice', 'dinnerPrice', 'packagingPrice', 'deliveryPrice'] as const) {
@@ -464,6 +465,18 @@ export async function handleSimpleRoutes(
           return true;
         }
         next.cutoffDaysBefore = body.cutoffDaysBefore;
+      }
+      if (body.collectivePackagingSize !== undefined) {
+        if (
+          typeof body.collectivePackagingSize !== 'number' ||
+          !Number.isInteger(body.collectivePackagingSize) ||
+          body.collectivePackagingSize < 1 ||
+          body.collectivePackagingSize > 100
+        ) {
+          sendError(res, 400, 'Validation Error', 'collectivePackagingSize doit être un entier entre 1 et 100.');
+          return true;
+        }
+        next.collectivePackagingSize = body.collectivePackagingSize;
       }
       if (body.closedDates !== undefined) {
         if (!Array.isArray(body.closedDates) || body.closedDates.length > 60) {
@@ -978,6 +991,17 @@ export async function handleSimpleRoutes(
       body = await readJsonBody(req);
     } catch {
       sendError(res, 400, 'Validation Error', 'Corps JSON invalide.');
+      return true;
+    }
+    const changesSecurity =
+      body.role !== undefined || body.password !== undefined || body.isActive !== undefined;
+    if (changesSecurity && !reauthenticate(req, staff)) {
+      sendError(
+        res,
+        401,
+        'REAUTH_REQUIRED',
+        'Confirmez votre mot de passe pour modifier un rôle, un accès ou un mot de passe.'
+      );
       return true;
     }
     const patch: Parameters<typeof janitouStore.updateStaffUser>[1] = {};

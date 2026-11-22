@@ -1,4 +1,7 @@
 # JANITOU FOOD — Bilan Détaillé d'Avancement de la Phase 1 (Validation 40 %)
+
+> **Mise à jour du 16/11/2026 :** ce bilan est conservé comme historique de la revue du 23/10/2026. L'état courant de la Phase 1, les preuves de tests et les actions externes restantes sont documentés dans [`PHASE1_ACCEPTANCE.md`](./PHASE1_ACCEPTANCE.md). Les chiffres ci-dessous (17 tests, CI) ne sont plus à jour.
+
 **Référence Devis :** D2026-0005-R1  
 **Date :** 23 Octobre 2026  
 **Document Contractuel d'Étape :** Validation de l'avancement & Déblocage de la tranche de 30 %

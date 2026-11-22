@@ -290,7 +290,7 @@ test('13. Customer Hierarchy & Prepaid Accounting — tracks subsidiaries, payme
   assert.equal(auditLogs[0].entityId, payment.id);
 });
 
-test('14. Emergency Workshop Package & Backup/Restore — generates printable package and round-trip backup', () => {
+test('14. Emergency Workshop Package & Backup/Restore — generates printable package and round-trip backup', async () => {
   const store = new JanitouStore();
   const pkg = store.generateEmergencyWorkshopPackage();
   assert.ok(pkg.totalMealPortions > 0);
@@ -303,7 +303,7 @@ test('14. Emergency Workshop Package & Backup/Restore — generates printable pa
   assert.ok(backup.data.customers !== undefined);
 
   // Restore test
-  const restored = store.restoreDatabaseFromBackup(backup);
+  const restored = await store.restoreDatabaseFromBackup(backup);
   assert.equal(restored, true);
 });
 
@@ -378,7 +378,7 @@ test('17. Backup files can be restored without losing the baseline', async () =>
   });
   assert.equal(store.getCustomers().length, baselineCustomers + 1);
 
-  assert.equal(store.restoreDatabaseFromBackup(parsed), true);
+  assert.equal(await store.restoreDatabaseFromBackup(parsed), true);
   assert.equal(store.getCustomers().length, baselineCustomers);
   rmSync(backupsDir, { recursive: true, force: true });
 });
@@ -405,7 +405,54 @@ test('18. Staff sessions survive a restart and logout is durable', async () => {
   if (existsSync(storage)) unlinkSync(storage);
 });
 
-test('19. Ten-day inactivity requires an administrative review', async () => {
+test('19. A session created during queued writes is never overwritten', async () => {
+  const storage = resolve(process.cwd(), 'data/test-write-race.json');
+  if (existsSync(storage)) unlinkSync(storage);
+  const db = new JanitouDatabase({ storageFilePath: storage });
+  const store1 = new JanitouStore(db);
+  await store1.ready();
+
+  // Queue a snapshot without awaiting it, then create a session immediately.
+  store1.createCustomer({
+    contactName: 'Concurrent Writer',
+    phone: '0777 11 22 33',
+    deliveryAddress: '2 Rue de la Concurrence, Alger',
+  });
+  const token = await store1.createStaffSession('staff-admin');
+  await store1.flush();
+
+  const store2 = new JanitouStore(db);
+  await store2.ready();
+  assert.equal(store2.getStaffSessionUserId(token), 'staff-admin');
+  assert.ok(store2.getCustomers().some((customer) => customer.contactName === 'Concurrent Writer'));
+
+  if (existsSync(storage)) unlinkSync(storage);
+});
+
+test('20. Restore rejects malformed payloads and preserves an active admin', async () => {
+  const store = new JanitouStore(undefined, { ephemeral: true });
+  assert.equal(await store.restoreDatabaseFromBackup({ data: { orders: 'invalid' } }), false);
+  assert.equal(
+    await store.restoreDatabaseFromBackup({
+      data: {
+        staffUsers: [
+          {
+            id: 'chef-only',
+            email: 'chef@janitou.dz',
+            role: 'CHEF_KITCHEN',
+            passwordSalt: 'salt',
+            passwordHash: 'hash',
+            isActive: true,
+          },
+        ],
+      },
+    }),
+    false
+  );
+  assert.equal(await store.restoreDatabaseFromBackup({}), false);
+});
+
+test('21. Ten-day inactivity requires an administrative review', async () => {
   const store = new JanitouStore(undefined, { ephemeral: true });
   const customer = store.createCustomer({
     contactName: 'Client Inactif',

@@ -35,6 +35,11 @@ export interface DatabaseState {
   clientSessions?: unknown[];
   notifications?: unknown[];
   outboundMessages?: unknown[];
+  vehicles?: unknown[];
+  workshops?: unknown[];
+  workOrders?: unknown[];
+  recipeVersions?: unknown[];
+  alternatives?: unknown[];
   settings?: unknown;
   metadata?: {
     lastPersistedAt: string;
@@ -121,7 +126,15 @@ export class JanitouDatabase {
       (state.subscriptions?.length || 0) +
       (state.invoices?.length || 0) +
       (state.payments?.length || 0) +
-      (state.auditLogs?.length || 0);
+      (state.auditLogs?.length || 0) +
+      (state.staffUsers?.length || 0) +
+      (state.notifications?.length || 0) +
+      (state.outboundMessages?.length || 0) +
+      (state.vehicles?.length || 0) +
+      (state.workshops?.length || 0) +
+      (state.workOrders?.length || 0) +
+      (state.recipeVersions?.length || 0) +
+      (state.alternatives?.length || 0);
 
     const payload: DatabaseState = {
       ...state,
@@ -161,6 +174,14 @@ export class JanitouDatabase {
       invoices: currentState?.invoices?.length || 0,
       payments: currentState?.payments?.length || 0,
       auditLogs: currentState?.auditLogs?.length || 0,
+      staffUsers: currentState?.staffUsers?.length || 0,
+      notifications: currentState?.notifications?.length || 0,
+      outboundMessages: currentState?.outboundMessages?.length || 0,
+      vehicles: currentState?.vehicles?.length || 0,
+      workshops: currentState?.workshops?.length || 0,
+      workOrders: currentState?.workOrders?.length || 0,
+      recipeVersions: currentState?.recipeVersions?.length || 0,
+      alternatives: currentState?.alternatives?.length || 0,
     };
 
     const totalRecords = Object.values(tables).reduce((a, b) => a + b, 0);
