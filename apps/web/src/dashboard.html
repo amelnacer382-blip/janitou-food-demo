@@ -81,7 +81,21 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-sans); }
-    body { background-color: var(--color-slate-50); color: var(--color-slate-800); min-height: 100vh; display: flex; text-rendering: optimizeLegibility; }
+    body {
+      background-color: var(--color-slate-50);
+      color: var(--color-slate-800);
+      min-height: 100vh;
+      display: flex;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Custom Sleek Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.02); }
+    ::-webkit-scrollbar-thumb { background: rgba(217, 119, 6, 0.28); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(217, 119, 6, 0.55); }
 
     /* Modern Glassmorphic Espresso Sidebar */
     .sidebar {
@@ -94,6 +108,8 @@
       border-right: 1px solid rgba(217, 119, 6, 0.14);
       box-shadow: 4px 0 24px rgba(18, 9, 6, 0.35);
       z-index: 30;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(217, 119, 6, 0.3) transparent;
     }
 
     .brand-container {
@@ -171,6 +187,26 @@
     .role-select option { background: var(--color-slate-900); color: #fff; }
 
     .nav-menu { list-style: none; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto; }
+    .nav-section-label {
+      font-size: 0.64rem;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.4);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding: 12px 12px 4px 12px;
+      margin-top: 6px;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.08);
+      margin-left: 6px;
+    }
     .nav-item {
       display: flex; align-items: center; gap: 12px;
       padding: 10px 14px;
@@ -189,6 +225,22 @@
       box-shadow: 0 4px 14px var(--color-primary-glow);
       text-shadow: 0 1px 2px rgba(0,0,0,0.25);
       font-weight: 800;
+    }
+    .nav-count-badge {
+      margin-left: auto;
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .nav-item.active .nav-count-badge {
+      background: #ffffff;
+      color: var(--color-primary-dark);
+      border: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
     .nav-icon {
       width: 18px;
@@ -302,21 +354,26 @@
       background: #ffffff;
       padding: 22px 24px;
       border-radius: var(--radius-lg);
-      border: 1px solid var(--color-slate-200);
-      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      box-shadow: 0 4px 20px -2px rgba(18, 9, 6, 0.04), 0 2px 6px -1px rgba(18, 9, 6, 0.02);
       position: relative;
       overflow: hidden;
-      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: rgba(217, 119, 6, 0.35); }
+    .kpi-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 32px -4px rgba(217, 119, 6, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+      border-color: rgba(217, 119, 6, 0.4);
+    }
     .kpi-card::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      background: var(--card-accent, var(--color-primary-light));
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3.5px;
+      background: linear-gradient(90deg, var(--card-accent, var(--color-primary-light)), rgba(251, 191, 36, 0.6));
     }
     .kpi-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
-    .kpi-title { font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--color-slate-500); letter-spacing: 0.06em; }
-    .kpi-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; background: var(--color-slate-100); }
-    .kpi-value { font-size: 2rem; font-weight: 800; color: var(--color-slate-900); letter-spacing: -0.03em; }
+    .kpi-title { font-size: 0.74rem; text-transform: uppercase; font-weight: 700; color: var(--color-slate-500); letter-spacing: 0.07em; }
+    .kpi-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; background: var(--color-slate-100); transition: transform 0.2s ease; }
+    .kpi-card:hover .kpi-icon { transform: scale(1.08); }
+    .kpi-value { font-size: 2.1rem; font-weight: 800; color: var(--color-slate-900); letter-spacing: -0.04em; }
     .kpi-footer { font-size: 0.8rem; margin-top: 8px; display: flex; align-items: center; gap: 6px; font-weight: 600; }
 
     /* Progress & Gauges */
@@ -327,10 +384,14 @@
     .glass-card {
       background: #ffffff;
       border-radius: var(--radius-lg);
-      border: 1px solid var(--color-slate-200);
-      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      box-shadow: 0 4px 20px -2px rgba(18, 9, 6, 0.04);
       margin-bottom: 24px;
       overflow: hidden;
+      transition: box-shadow 0.25s ease;
+    }
+    .glass-card:hover {
+      box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.06);
     }
     .card-header-bar {
       padding: 18px 24px;
@@ -338,7 +399,7 @@
       display: flex; justify-content: space-between; align-items: center;
       background: linear-gradient(180deg, #ffffff 0%, #faf5ee 100%);
     }
-    .card-heading { font-size: 1.08rem; font-weight: 700; color: var(--color-slate-900); letter-spacing: -0.01em; }
+    .card-heading { font-size: 1.08rem; font-weight: 800; color: var(--color-slate-900); letter-spacing: -0.01em; }
     .card-subheading { font-size: 0.8rem; color: var(--color-slate-500); margin-top: 2px; }
 
     .table-container { width: 100%; overflow-x: auto; }
@@ -387,22 +448,31 @@
       font-weight: 700;
       border: none;
       cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .btn-action-primary {
       background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
       color: #fff;
       text-shadow: 0 1px 2px rgba(0,0,0,0.22);
       box-shadow: 0 4px 14px var(--color-primary-glow);
+      border: 1px solid rgba(245, 158, 11, 0.35);
     }
-    .btn-action-primary:hover { background: linear-gradient(135deg, #fbbf24, #b45309); transform: translateY(-1px); }
+    .btn-action-primary:hover {
+      background: linear-gradient(135deg, #fbbf24, #b45309);
+      transform: translateY(-1.5px);
+      box-shadow: 0 6px 18px rgba(217, 119, 6, 0.45);
+    }
     .btn-action-secondary {
       background: #ffffff;
       color: var(--color-slate-700);
       border: 1px solid var(--color-slate-200);
       box-shadow: var(--shadow-sm);
     }
-    .btn-action-secondary:hover { background: var(--color-slate-50); border-color: var(--color-slate-300); }
+    .btn-action-secondary:hover {
+      background: var(--color-slate-50);
+      border-color: var(--color-slate-300);
+      transform: translateY(-1px);
+    }
 
     /* KDS Dark Station Mode */
     .kds-dark-board {
@@ -681,6 +751,7 @@
     </div>
 
     <ul class="nav-menu">
+      <li class="nav-section-label">Pilotage & Finance</li>
       <li class="nav-item active" onclick="switchNavTab('overview')">
         <svg class="nav-icon" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
         <span>Vue Globale & Finance</span>
@@ -694,6 +765,8 @@
         <svg class="nav-icon" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/><path d="M6 15h4"/></svg>
         <span>Facturation & Soldes</span>
       </li>
+
+      <li class="nav-section-label">Cuisine & Atelier</li>
       <li class="nav-item" onclick="switchNavTab('recipes')">
         <svg class="nav-icon" viewBox="0 0 24 24"><path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.457.316-.844.727-1.041a4 4 0 0 0-2.134-7.589 5 5 0 0 0-9.186 0 4 4 0 0 0-2.134 7.588c.411.198.727.585.727 1.041V20a1 1 0 0 0 1 1Z"/><path d="M6 17h12"/></svg>
         <span>Fiches Recettes & Simulateur</span>
@@ -712,6 +785,8 @@
         <svg class="nav-icon" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>
         <span>Fiche de Production</span>
       </li>
+
+      <li class="nav-section-label">Logistique & Stock</li>
       <li class="nav-item" onclick="switchNavTab('inventory')">
         <svg class="nav-icon" viewBox="0 0 24 24"><path d="M20 7v10"/><path d="M14 17V7"/><path d="M4 17v-4"/><path d="M10 7v4"/><path d="M4 7h16"/><path d="M4 17h16"/><rect width="20" height="18" x="2" y="3" rx="2"/></svg>
         <span>Stocks & Achats</span>
@@ -729,6 +804,8 @@
         <svg class="nav-icon" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
         <span>Sécurité & Audit</span>
       </li>
+
+      <li class="nav-section-label">Phase 2 — Avancé & IA</li>
       <li class="nav-item" onclick="switchNavTab('phase2-rules')">
         <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         <span>Règles & Pénuries (P2)</span>
@@ -753,6 +830,8 @@
         <span style="font-weight:700; color:var(--color-primary-light);">Parcours Client (Phase 2)</span>
         <span style="font-size:0.62rem; padding:2px 6px; border-radius:4px; background:var(--color-primary); color:#fff; margin-left:auto;">Démo</span>
       </li>
+
+      <li class="nav-section-label">Documentation & Outils</li>
       <li class="nav-item" style="border-top: 1px dashed rgba(217, 119, 6, 0.25); margin-top: 6px;">
         <a href="/api/docs" target="_blank" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:12px; width:100%;">
           <svg class="nav-icon" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
