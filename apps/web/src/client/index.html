@@ -198,6 +198,13 @@
     .order-actions button { flex: 1; border-radius: 10px; padding: 9px; font-size: 0.76rem; font-weight: 800; background: var(--soft); color: var(--teal-dark); }
     .order-actions button.cancel { background: #fff1f1; color: var(--danger); }
     .pack-select { width: 92px; padding: 8px 6px; border: 1px solid var(--line); border-radius: 9px; background: #fffdf8; font-size: 0.72rem; }
+    .pack-select-modern {
+      height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 12px;
+      background: #ffffff; font-size: 0.76rem; font-weight: 700; color: #4a3826;
+      box-shadow: 0 2px 6px rgba(58, 42, 24, 0.04); outline: none; cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+    .pack-select-modern:focus { border-color: var(--gold); }
     .nav-btn {
       display: flex; flex-direction: column; align-items: center; gap: 3px;
       padding: 8px 4px; color: var(--muted); font-size: 0.68rem; font-weight: 700;
@@ -229,9 +236,127 @@
     .qty-row:last-child { border-bottom: 0; }
     .qty-row b { font-size: 0.85rem; display: block; }
     .qty-row small { color: var(--muted); font-size: 0.72rem; }
-    .stepper { display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--line); border-radius: 11px; overflow: hidden; }
-    .stepper button { width: 36px; height: 36px; font-size: 1.1rem; font-weight: 700; color: var(--teal-dark); background: #fffdf8; }
-    .stepper span { min-width: 34px; text-align: center; font-weight: 800; font-size: 0.88rem; }
+    .stepper {
+      display: inline-flex; align-items: center; gap: 0;
+      border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+      background: #ffffff; box-shadow: 0 2px 6px rgba(58, 42, 24, 0.04);
+    }
+    .stepper button {
+      width: 36px; height: 36px; font-size: 1.25rem; font-weight: 800;
+      color: var(--teal-dark); background: #fffdf8;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .stepper button:hover { background: #fbf5e9; color: var(--gold-dark); }
+    .stepper button:active { transform: scale(0.92); }
+    .stepper span { min-width: 36px; text-align: center; font-weight: 800; font-size: 0.95rem; color: #1b120a; }
+
+    /* VIP Corporate & Routine Luxury Styles */
+    .vip-card {
+      background: linear-gradient(135deg, #1b120a 0%, #2a1a0e 55%, #160e06 100%);
+      color: #fff8eb; border: 1px solid rgba(245, 158, 11, 0.4);
+      border-radius: 22px; padding: 18px 20px; margin-bottom: 16px;
+      box-shadow: 0 14px 34px rgba(27, 18, 10, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      position: relative; overflow: hidden;
+    }
+    .vip-card::after {
+      content: ''; position: absolute; top: -30px; right: -30px; width: 140px; height: 140px;
+      border-radius: 50%; background: radial-gradient(circle, rgba(245, 158, 11, 0.25), transparent 70%);
+      pointer-events: none;
+    }
+    [dir="ltr"] .vip-card::after { right: auto; left: -30px; }
+    .vip-badge-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 999px;
+      background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #fbbf24; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em;
+      margin-bottom: 10px;
+    }
+    .vip-badge-pill svg { width: 13px; height: 13px; fill: currentColor; }
+    .vip-main-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+    .vip-company-name { font-size: 1.15rem; font-weight: 800; color: #ffffff; margin: 0 0 4px; line-height: 1.3; }
+    .vip-contact-info { font-size: 0.76rem; color: #dfd0bc; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .vip-balance-pill {
+      background: rgba(245, 158, 11, 0.14); border: 1px solid rgba(245, 158, 11, 0.38);
+      border-radius: 16px; padding: 8px 14px; text-align: center; flex: 0 0 auto;
+    }
+    .vip-balance-pill small { display: block; font-size: 0.65rem; font-weight: 700; color: #fde68a; letter-spacing: 0.05em; text-transform: uppercase; }
+    .vip-balance-pill b { display: block; font-size: 1.25rem; font-weight: 800; color: #fbbf24; margin-top: 2px; letter-spacing: -0.01em; }
+
+    .routine-notice-card {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: #fffdf8; border: 1px solid #ebdcc6; border-inline-start: 4px solid var(--gold);
+      border-radius: 16px; padding: 13px 15px; margin-bottom: 16px;
+      box-shadow: 0 4px 14px rgba(58, 42, 24, 0.04);
+    }
+    .routine-notice-icon {
+      width: 32px; height: 32px; border-radius: 10px; background: var(--gold-light);
+      color: var(--gold-dark); display: flex; align-items: center; justify-content: center;
+      flex: 0 0 auto; font-size: 1rem;
+    }
+    .routine-notice-text { font-size: 0.8rem; line-height: 1.55; color: #574433; }
+    .routine-notice-text strong { display: block; color: #241a10; font-size: 0.84rem; margin-bottom: 2px; }
+
+    .program-day-card {
+      background: #ffffff; border: 1px solid var(--line); border-radius: 20px;
+      padding: 16px 18px; margin-bottom: 14px; box-shadow: 0 6px 20px rgba(58, 42, 24, 0.04);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .program-day-card.is-active {
+      border-color: rgba(217, 119, 6, 0.35); box-shadow: 0 10px 28px rgba(217, 119, 6, 0.08);
+    }
+    .program-day-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px dashed var(--line);
+    }
+    .program-day-title { display: flex; align-items: center; gap: 8px; }
+    .program-day-title strong { font-size: 1rem; font-weight: 800; color: #1b120a; }
+    .day-state-pill {
+      display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; font-weight: 800;
+      padding: 4px 10px; border-radius: 999px; transition: all 0.2s ease;
+    }
+    .day-state-pill.active { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .day-state-pill.closed { background: #f5efe6; color: var(--muted); border: 1px solid transparent; }
+    .pulse-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: #10b981;
+      display: inline-block; animation: pulse 1.8s infinite; margin-inline-end: 4px;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .service-slot {
+      background: #faf6ee; border: 1px solid rgba(235, 220, 198, 0.85); border-radius: 14px;
+      padding: 11px 13px; margin-bottom: 10px; display: flex; align-items: center;
+      justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    }
+    .service-slot-meta { display: flex; align-items: center; gap: 10px; min-width: 120px; }
+    .service-slot-icon {
+      width: 34px; height: 34px; border-radius: 10px; background: #ffffff;
+      border: 1px solid #ebdcc6; display: flex; align-items: center; justify-content: center;
+      font-size: 1.05rem; box-shadow: 0 2px 5px rgba(0,0,0,0.03); flex: 0 0 auto;
+    }
+    .service-slot-name b { display: block; font-size: 0.86rem; font-weight: 800; color: #241a10; }
+    .service-slot-name small { display: block; color: var(--gold-dark); font-size: 0.72rem; font-weight: 700; margin-top: 1px; }
+    .service-slot-controls { display: flex; align-items: center; gap: 8px; }
+    .program-day-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 6px; border-top: 1px dashed rgba(236, 220, 195, 0.7); margin-top: 6px;
+    }
+    .day-subtotal { font-size: 0.78rem; font-weight: 700; color: #78644f; }
+    .day-subtotal b { color: var(--teal-dark); font-size: 0.85rem; font-weight: 800; }
+    .save-program-btn {
+      width: 100%; padding: 16px 20px; border-radius: 16px;
+      background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+      color: #ffffff; font-weight: 800; font-size: 0.94rem;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      box-shadow: 0 8px 24px rgba(180, 83, 9, 0.32); margin-top: 12px; margin-bottom: 24px;
+      cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .save-program-btn:hover { box-shadow: 0 12px 30px rgba(180, 83, 9, 0.42); transform: translateY(-2px); }
+    .save-program-btn:active { transform: scale(0.98); }
+    .save-program-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; }
     .pack { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 14px; }
     .pack label { display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 11px; padding: 10px; font-size: 0.78rem; font-weight: 700; background: #fffdf8; }
     .pack input { accent-color: var(--teal); }
@@ -1060,25 +1185,45 @@
     function renderGuestProgramInfo() {
       const fr = LANG === 'fr';
       $('#programContent').innerHTML = `
-        <section class="catalog-hero" style="margin-bottom:14px;">
-          <small>JANITOU FOOD</small>
+        <section class="catalog-hero" style="margin-bottom:16px;">
+          <small style="text-transform:uppercase; letter-spacing:0.08em; opacity:0.85;">JANITOU FOOD · CORPORATE & ROUTINE</small>
           <h2>${fr ? 'Programme Hebdo & Routine Entreprise' : 'البرنامج الأسبوعي وروتين الشركات'}</h2>
-          <p>${fr ? 'Définissez une routine de repas récurrente pour votre entreprise ou équipe. Vos plats sont cuisinés et livrés chaque jour sans avoir à re-commander.' : 'حدّد روتين وجبات ثابت أسبوعياً لشركتك أو موظفيك. يتم تحضير وتوصيل الوجبات تلقائياً يومياً دون الحاجة لإعادة الطلب كل صباح.'}</p>
+          <p>${fr ? 'Définissez une routine de repas récurrente pour votre entreprise ou clinique. Vos plats sont cuisinés chaque jour avec amour et livrés chauds à heure fixe.' : 'حدّد روتين وجبات ثابت أسبوعياً لشركتك أو عيادتك. يتم تحضير وتوصيل الوجبات طازجة يومياً دون الحاجة لإعادة الطلب كل صباح.'}</p>
         </section>
-        <div class="card" style="padding:18px; margin-bottom:14px;">
-          <h3 style="margin:0 0 10px; font-size:0.96rem; color:var(--ink);">${fr ? 'Avantages de la Routine Fixe Janitou :' : 'مميزات الروتين الأسبوعي الثابت :'}</h3>
-          <ul style="margin:0; padding-inline-start:20px; font-size:0.82rem; color:var(--muted); line-height:1.75;">
-            <li>${fr ? 'Quantités fixes du Dimanche au Jeudi (midi et/ou soir).' : 'كميات محددة مسبقاً من الأحد إلى الخميس (غداء أو عشاء).'}</li>
-            <li>${fr ? 'Variation automatique des plats selon la planification culinaire équilibrée du chef.' : 'تنويع أوتوماتيكي للأطباق حسب جدول التغذية وقواعد الشيف.'}</li>
-            <li>${fr ? 'Conditionnement adapté en barquettes individuelles ou bacs thermo-scellés.' : 'تغليف فردي أو جماعي حسب رغبة المؤسسة.'}</li>
-            <li>${fr ? 'Facturation mensuelle claire et reçus de paiement numérotés.' : 'فوترة واضحة، كشف حساب دوري وتوصيل في الموعد المحدد.'}</li>
-          </ul>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
+          <div class="card" style="padding:14px; background:#fff; border-radius:16px;">
+            <div style="font-size:1.4rem; margin-bottom:6px;">⏱️</div>
+            <strong style="display:block; font-size:0.84rem; margin-bottom:4px; color:#1b120a;">${fr ? 'Zéro perte de temps' : 'توفير الوقت والجهد'}</strong>
+            <p style="margin:0; font-size:0.72rem; color:var(--muted); line-height:1.5;">${fr ? 'Pas de commande manuelle chaque matin. Livraison quotidienne garantie.' : 'لا داعي لإعادة الطلب يومياً. جدول وجبات محدد وتوصيل مضمون في الوقت.'}</p>
+          </div>
+          <div class="card" style="padding:14px; background:#fff; border-radius:16px;">
+            <div style="font-size:1.4rem; margin-bottom:6px;">🍲</div>
+            <strong style="display:block; font-size:0.84rem; margin-bottom:4px; color:#1b120a;">${fr ? 'Recettes variées du Chef' : 'تنويع أطباق الشيف'}</strong>
+            <p style="margin:0; font-size:0.72rem; color:var(--muted); line-height:1.5;">${fr ? 'Plats traditionnels & équilibrés qui changent chaque jour sans lassitude.' : 'أطباق تقليدية متجددة يومياً تضمن توازن التغذية وجودة الطعم ورضا الموظفين.'}</p>
+          </div>
+          <div class="card" style="padding:14px; background:#fff; border-radius:16px;">
+            <div style="font-size:1.4rem; margin-bottom:6px;">📦</div>
+            <strong style="display:block; font-size:0.84rem; margin-bottom:4px; color:#1b120a;">${fr ? 'Conditionnement Pro' : 'تغليف احترافي وصحي'}</strong>
+            <p style="margin:0; font-size:0.72rem; color:var(--muted); line-height:1.5;">${fr ? 'Barquettes individuelles thermoscellées ou bacs thermo collectifs.' : 'تغليف فردي محكم الغلق أو أوعية حفظ حرارية جماعية تناسب قاعات الإطعام.'}</p>
+          </div>
+          <div class="card" style="padding:14px; background:#fff; border-radius:16px;">
+            <div style="font-size:1.4rem; margin-bottom:6px;">🧾</div>
+            <strong style="display:block; font-size:0.84rem; margin-bottom:4px; color:#1b120a;">${fr ? 'Facturation simplifiée' : 'فوترة واضحة ومرنة'}</strong>
+            <p style="margin:0; font-size:0.72rem; color:var(--muted); line-height:1.5;">${fr ? 'Reçus clairs, suivi de solde en temps réel et facturation mensuelle.' : 'كشف حساب شفاف، تتبع للرصيد والمصاريف، وفواتير شهرية رسمية للشركات.'}</p>
+          </div>
         </div>
-        <div class="card" style="padding:16px; text-align:center;">
-          <p style="margin:0 0 12px; font-size:0.84rem; font-weight:700;">${fr ? 'Déjà client abonné ? Connectez-vous avec votre code' : 'مشترك مسبقاً؟ سجّل الدخول لتعديل روتينك الأسبوعي'}</p>
-          <button class="btn" onclick="showAuth()">${fr ? 'Connexion Espace Client' : 'تسجيل دخول المشتركين'}</button>
-          <a href="https://wa.me/213562818026?text=${encodeURIComponent(fr ? 'Bonjour Janitou Food, je souhaite activer une routine quotidienne de repas pour mon entreprise' : 'مرحباً جانيتو فود، أود الاشتراك في برنامج الوجبات اليومية للشركات')}" target="_blank" class="btn secondary" style="margin-top:10px; text-decoration:none;">
-            💬 ${fr ? 'Contacter JANITOU pour activer la routine' : 'تواصل مع جانيتو فود لتفعيل الاشتراك'}
+
+        <div class="card" style="padding:20px; text-align:center; background:#ffffff; border-radius:20px; box-shadow:0 8px 24px rgba(58,42,24,0.06); margin-bottom:14px;">
+          <h3 style="margin:0 0 6px; font-size:0.98rem; font-weight:800; color:#1b120a;">${fr ? 'Déjà client entreprise ?' : 'مشترك مسبقاً في الروتين؟'}</h3>
+          <p style="margin:0 0 16px; font-size:0.78rem; color:var(--muted); line-height:1.6;">${fr ? 'Connectez-vous avec votre numéro et code PIN à 4 chiffres pour gérer vos quantités.' : 'سجّل الدخول برقم هاتفك والرمز السري (4 أرقام) لضبط وجبات أسبوعك فوراً.'}</p>
+          <button class="btn" onclick="showAuth()" style="margin-bottom:10px;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" style="margin-inline-end:6px;"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            ${fr ? 'Accéder à mon Espace Entreprise' : 'تسجيل دخول المشتركين'}
+          </button>
+          <a href="https://wa.me/213562818026?text=${encodeURIComponent(fr ? 'Bonjour Janitou Food, je souhaite activer une routine quotidienne de repas pour mon entreprise' : 'مرحباً جانيتو فود، أود الاشتراك في برنامج الوجبات اليومية للشركات')}" target="_blank" class="btn" style="background:#25d366; color:#ffffff; box-shadow:0 4px 14px rgba(37,211,102,0.3); text-decoration:none;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="margin-inline-end:6px;"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2ZM12.05 20.15C10.57 20.15 9.12 19.76 7.85 19.01L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 14.99 3.81 13.47 3.81 11.91C3.81 7.37 7.5 3.68 12.05 3.68C14.25 3.68 16.31 4.54 17.87 6.1C19.42 7.66 20.28 9.72 20.27 11.92C20.28 16.46 16.59 20.15 12.05 20.15Z"/></svg>
+            ${fr ? 'Discuter avec Janitou sur WhatsApp' : 'تواصل مع جانيتو فود عبر واتساب'}
           </a>
         </div>
       `;
@@ -1102,56 +1247,114 @@
       if (!state.program) return;
       const fr = LANG === 'fr';
       const companyBanner = state.account ? `
-        <div class="card" style="padding:14px 16px; margin-bottom:14px; background:linear-gradient(135deg, #2b1d11, #1a1008); color:#fef3c7; border:1px solid rgba(217,119,6,0.35);">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="vip-card">
+          <div class="vip-badge-pill">
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <span>${fr ? 'ESPACE ENTREPRISE ABONNÉ' : 'فضاء المؤسسات والمشتركين'}</span>
+          </div>
+          <div class="vip-main-row">
             <div>
-              <span style="font-size:0.7rem; opacity:0.8; font-weight:700;">${fr ? 'ESPACE ENTREPRISE ABONNÉ' : 'حساب المشتركين والشركات'}</span>
-              <strong style="display:block; font-size:1.02rem; margin-top:2px; color:#fff;">${esc(state.account.companyName || state.account.contactName)}</strong>
-              <small style="opacity:0.85; font-size:0.75rem;">${esc(state.account.contactName ? `${state.account.contactName} · ` : '')}${esc(state.account.phone)}</small>
+              <h2 class="vip-company-name">${esc(state.account.companyName || state.account.contactName)}</h2>
+              <div class="vip-contact-info">
+                <span>👤 ${esc(state.account.contactName)}</span>
+                <span>📞 <bdi>${esc(state.account.phone)}</bdi></span>
+              </div>
             </div>
-            <div style="text-align:right;">
-              <span style="font-size:0.68rem; opacity:0.8; font-weight:700;">${fr ? 'SOLDE DISPONIBLE' : 'الرصيد المتاح'}</span>
-              <b style="display:block; font-size:1.15rem; color:#f59e0b; margin-top:2px;">${money(state.account.balance)}</b>
+            <div class="vip-balance-pill">
+              <small>${fr ? 'SOLDE DISPONIBLE' : 'الرصيد المتاح'}</small>
+              <b>${money(state.account.balance)}</b>
             </div>
           </div>
         </div>
       ` : '';
 
+      const lunchPrice = Number(state.config?.lunchPrice || 450);
+      const dinnerPrice = Number(state.config?.dinnerPrice || 400);
+
       const rows = state.program.map((entry) => {
         const active = entry.lunchPortions + entry.dinnerPortions > 0;
-        return `<article class="card day-card">
-          <div class="day-head">
-            <strong>${WEEKDAYS[entry.weekday]}</strong>
-            <span class="day-state ${active ? '' : 'closed'}">${active ? (fr ? 'Actif' : 'مفعّل') : (fr ? 'Inactif' : 'غير مفعّل')}</span>
-          </div>
-          <div class="qty-row">
-            <div><b>${fr ? 'Déjeuner' : 'الغداء'}</b><small>${money(state.config?.lunchPrice)} ${fr ? '/ repas' : 'للوجبة'}</small></div>
-            <div class="stepper" data-prog-day="${entry.weekday}" data-prog-service="lunch">
-              <button type="button" data-step="-1">−</button><span>${entry.lunchPortions}</span><button type="button" data-step="1">+</button>
+        const totalPortions = entry.lunchPortions + entry.dinnerPortions;
+        const dailyCost = (entry.lunchPortions * lunchPrice) + (entry.dinnerPortions * dinnerPrice);
+
+        return `<article class="card program-day-card ${active ? 'is-active' : ''}">
+          <div class="program-day-head">
+            <div class="program-day-title">
+              <strong>${WEEKDAYS[entry.weekday]}</strong>
             </div>
-            <select class="pack-select" data-prog-pack-day="${entry.weekday}" data-prog-pack-service="lunch">
-              <option value="INDIVIDUAL" ${entry.lunchPackaging !== 'COLLECTIVE' ? 'selected' : ''}>${fr ? 'Individuel' : 'فردي'}</option>
-              <option value="COLLECTIVE" ${entry.lunchPackaging === 'COLLECTIVE' ? 'selected' : ''}>${fr ? 'Collectif' : 'جماعي'}</option>
-            </select>
+            <span class="day-state-pill ${active ? 'active' : 'closed'}">
+              ${active ? `<span class="pulse-dot"></span>${fr ? 'Actif' : 'مفعّل'}` : (fr ? 'Inactif' : 'غير مفعّل')}
+            </span>
           </div>
-          <div class="qty-row">
-            <div><b>${fr ? 'Dîner' : 'العشاء'}</b><small>${money(state.config?.dinnerPrice)} ${fr ? '/ repas' : 'للوجبة'}</small></div>
-            <div class="stepper" data-prog-day="${entry.weekday}" data-prog-service="dinner">
-              <button type="button" data-step="-1">−</button><span>${entry.dinnerPortions}</span><button type="button" data-step="1">+</button>
+
+          <div class="service-slot">
+            <div class="service-slot-meta">
+              <div class="service-slot-icon">☀️</div>
+              <div class="service-slot-name">
+                <b>${fr ? 'Déjeuner' : 'الغداء'}</b>
+                <small>${money(lunchPrice)} ${fr ? '/ repas' : 'للوجبة'}</small>
+              </div>
             </div>
-            <select class="pack-select" data-prog-pack-day="${entry.weekday}" data-prog-pack-service="dinner">
-              <option value="INDIVIDUAL" ${entry.dinnerPackaging !== 'COLLECTIVE' ? 'selected' : ''}>${fr ? 'Individuel' : 'فردي'}</option>
-              <option value="COLLECTIVE" ${entry.dinnerPackaging === 'COLLECTIVE' ? 'selected' : ''}>${fr ? 'Collectif' : 'جماعي'}</option>
-            </select>
+            <div class="service-slot-controls">
+              <div class="stepper" data-prog-day="${entry.weekday}" data-prog-service="lunch">
+                <button type="button" data-step="-1" aria-label="Moins">−</button>
+                <span>${entry.lunchPortions}</span>
+                <button type="button" data-step="1" aria-label="Plus">+</button>
+              </div>
+              <select class="pack-select pack-select-modern" data-prog-pack-day="${entry.weekday}" data-prog-pack-service="lunch" aria-label="${fr ? 'Emballage' : 'التغليف'}">
+                <option value="INDIVIDUAL" ${entry.lunchPackaging !== 'COLLECTIVE' ? 'selected' : ''}>📦 ${fr ? 'Individuel' : 'فردي'}</option>
+                <option value="COLLECTIVE" ${entry.lunchPackaging === 'COLLECTIVE' ? 'selected' : ''}>🍱 ${fr ? 'Collectif' : 'جماعي'}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="service-slot">
+            <div class="service-slot-meta">
+              <div class="service-slot-icon">🌙</div>
+              <div class="service-slot-name">
+                <b>${fr ? 'Dîner' : 'العشاء'}</b>
+                <small>${money(dinnerPrice)} ${fr ? '/ repas' : 'للوجبة'}</small>
+              </div>
+            </div>
+            <div class="service-slot-controls">
+              <div class="stepper" data-prog-day="${entry.weekday}" data-prog-service="dinner">
+                <button type="button" data-step="-1" aria-label="Moins">−</button>
+                <span>${entry.dinnerPortions}</span>
+                <button type="button" data-step="1" aria-label="Plus">+</button>
+              </div>
+              <select class="pack-select pack-select-modern" data-prog-pack-day="${entry.weekday}" data-prog-pack-service="dinner" aria-label="${fr ? 'Emballage' : 'التغليف'}">
+                <option value="INDIVIDUAL" ${entry.dinnerPackaging !== 'COLLECTIVE' ? 'selected' : ''}>📦 ${fr ? 'Individuel' : 'فردي'}</option>
+                <option value="COLLECTIVE" ${entry.dinnerPackaging === 'COLLECTIVE' ? 'selected' : ''}>🍱 ${fr ? 'Collectif' : 'جماعي'}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="program-day-footer">
+            <span style="font-size:0.74rem; color:var(--muted);">${fr ? 'Sous-total quotidien :' : 'المجموع اليومي :'}</span>
+            <div class="day-subtotal">
+              ${totalPortions > 0
+                ? `${totalPortions} ${fr ? 'repas' : 'وجبة'} · <b>${money(dailyCost)}</b>`
+                : `<span style="color:var(--muted); font-weight:normal;">${fr ? 'Aucun repas' : 'لا توجد وجبات'}</span>`
+              }
+            </div>
           </div>
         </article>`;
       }).join('');
+
       $('#programContent').innerHTML = `
         ${companyBanner}
         ${statusBanner()}
-        <div class="banner ok">${fr ? 'Définissez les portions de déjeuner et dîner pour chaque jour. Les commandes des 7 prochains jours sont générées et planifiées automatiquement.' : 'حدّد كميات الغداء والعشاء لكل يوم. بعد الحفظ تُنشأ الطلبات تلقائياً لليوم والستة أيام القادمة.'}</div>
+        <div class="routine-notice-card">
+          <div class="routine-notice-icon">📋</div>
+          <div class="routine-notice-text">
+            <strong>${fr ? 'Planification automatique sur 7 jours' : 'برمجة وتوليد تلقائي للـ 7 أيام القادمة'}</strong>
+            ${fr ? 'Ajustez les portions souhaitées pour chaque jour. Les commandes sont générées et cuisinées automatiquement. Vous pouvez modifier ce programme à tout moment.' : 'حدّد كميات الغداء والعشاء لكل يوم. بعد الحفظ تُنشأ الطلبات تلقائياً لليوم والستة أيام القادمة وتُحضّر دون انقطاع.'}
+          </div>
+        </div>
         ${rows}
-        <button class="btn" id="saveProgram" style="margin-top:6px;">${fr ? 'Enregistrer le programme et générer les commandes' : 'حفظ البرنامج وتوليد الطلبات'}</button>`;
+        <button class="save-program-btn" id="saveProgram">
+          <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span>${fr ? 'Enregistrer le programme et générer les commandes' : 'حفظ البرنامج وتوليد الطلبات'}</span>
+        </button>`;
     }
 
     function guestPhone() {
@@ -1238,11 +1441,11 @@
             <div style="width:52px;height:52px;border-radius:16px;background:var(--soft);color:var(--teal-dark);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.15rem;">${esc(state.account.contactName.charAt(0))}</div>
             <div><strong style="display:block;">${esc(state.account.companyName || state.account.contactName)}</strong><span style="color:var(--muted);font-size:0.76rem;"><bdi>${esc(state.account.phone)}</bdi></span></div>
           </div>
-          <p class="hint" style="text-align:right;margin:0 0 6px;"><bdi>${esc(state.account.deliveryAddress)}</bdi></p>
-          ${state.account.distribution ? `<p class="hint" style="text-align:right;margin:0 0 6px;">${LANG === 'fr' ? 'Distribution' : 'التوزيع'} : ${esc(state.account.distribution.label || distributionLabel(state.account.distribution.type))}</p>` : ''}
-          <p class="hint" style="text-align:right;margin:0;">${LANG === 'fr' ? 'Statut' : 'الحالة'} : ${esc(statusLabels[status] || status)}</p>
+          <p class="hint" style="text-align:inherit;margin:0 0 6px;"><bdi>${esc(state.account.deliveryAddress)}</bdi></p>
+          ${state.account.distribution ? `<p class="hint" style="text-align:inherit;margin:0 0 6px;">${LANG === 'fr' ? 'Mode de livraison' : 'طريقة التوصيل'} : ${esc(state.account.distribution.label || distributionLabel(state.account.distribution.type))}</p>` : ''}
+          <p class="hint" style="text-align:inherit;margin:0;">${LANG === 'fr' ? 'Statut du compte' : 'حالة الحساب'} : <b>${esc(statusLabels[status] || status)}</b></p>
         </div>
-        <button class="btn secondary" onclick="go('orders')">طلباتي</button>
+        <button class="btn secondary" onclick="go('orders')">${LANG === 'fr' ? 'Mes Commandes' : 'طلباتي'}</button>
       `;
     }
 
@@ -1432,10 +1635,28 @@
         const field = stepper.dataset.progService === 'lunch' ? 'lunchPortions' : 'dinnerPortions';
         entry[field] = Math.max(0, Math.min(30, entry[field] + Number(programStep.dataset.step)));
         stepper.querySelector('span').textContent = String(entry[field]);
-        const badge = stepper.closest('.day-card').querySelector('.day-state');
-        const active = entry.lunchPortions + entry.dinnerPortions > 0;
-        badge.textContent = active ? 'مفعّل' : 'غير مفعّل';
-        badge.classList.toggle('closed', !active);
+        const dayCard = stepper.closest('.program-day-card') || stepper.closest('.day-card');
+        if (dayCard) {
+          const badge = dayCard.querySelector('.day-state-pill') || dayCard.querySelector('.day-state');
+          const active = entry.lunchPortions + entry.dinnerPortions > 0;
+          const fr = LANG === 'fr';
+          if (badge) {
+            badge.innerHTML = active ? `<span class="pulse-dot"></span>${fr ? 'Actif' : 'مفعّل'}` : (fr ? 'Inactif' : 'غير مفعّل');
+            badge.classList.toggle('active', active);
+            badge.classList.toggle('closed', !active);
+          }
+          dayCard.classList.toggle('is-active', active);
+          const subtotal = dayCard.querySelector('.day-subtotal');
+          if (subtotal) {
+            const lunchP = Number(state.config?.lunchPrice || 450);
+            const dinnerP = Number(state.config?.dinnerPrice || 400);
+            const totalPortions = entry.lunchPortions + entry.dinnerPortions;
+            const dailyCost = (entry.lunchPortions * lunchP) + (entry.dinnerPortions * dinnerP);
+            subtotal.innerHTML = totalPortions > 0
+              ? `${totalPortions} ${fr ? 'repas' : 'وجبة'} · <b>${money(dailyCost)}</b>`
+              : `<span style="color:var(--muted); font-weight:normal;">${fr ? 'Aucun repas' : 'لا توجد وجبات'}</span>`;
+          }
+        }
         return;
       }
 
@@ -1447,7 +1668,7 @@
           });
           state.program = data.entries;
           renderProgram();
-          toast(`تم حفظ البرنامج — ${data.generatedCount} طلب جديد`);
+          toast(LANG === 'fr' ? `Programme enregistré — ${data.generatedCount} commande(s) générée(s)` : `تم حفظ البرنامج — ${data.generatedCount} طلب جديد`);
           loadGuestOrders();
         } catch (error) {
           toast(error.message, true);
