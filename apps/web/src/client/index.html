@@ -330,15 +330,16 @@
   </div>
 
   <div class="auth" id="authScreen" style="display:none;">
+    <button type="button" class="btn secondary" onclick="showApp()" style="margin-bottom:16px; width:auto; padding:8px 16px; font-size:0.8rem;" id="authBackBtn">← العودة إلى القائمة</button>
     <div class="auth-logo">
       <img src="/logo.png" alt="JANITOU FOOD" />
-      <h1>جانيتو فود</h1>
-      <p>اطلب وجبتك اليومية بسهولة</p>
+      <h1 id="authTitle">جانيتو فود</h1>
+      <p id="authSubtitle">اطلب وجبتك اليومية بسهولة</p>
     </div>
     <form id="loginForm" class="card" style="padding:16px;">
-      <div class="field"><label>رقم الهاتف</label><input type="tel" name="phone" inputmode="tel" autocomplete="tel" placeholder="0555 44 33 22" required /></div>
+      <div class="field"><label id="authPhoneLabel">رقم الهاتف</label><input type="tel" name="phone" inputmode="tel" autocomplete="tel" placeholder="0555 44 33 22" required /></div>
       <div class="field">
-        <label>رمز الدخول (4 أرقام)</label>
+        <label id="authPinLabel">رمز الدخول (4 أرقام)</label>
         <div class="password-wrapper">
           <input type="password" id="clientPinInput" name="pin" inputmode="numeric" maxlength="4" pattern="\d{4}" placeholder="••••" required />
           <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('clientPinInput', this)" aria-label="إظهار / إخفاء رمز الدخول" title="إظهار / إخفاء">
@@ -346,11 +347,11 @@
           </button>
         </div>
       </div>
-      <button class="btn" type="submit">دخول</button>
-      <p class="hint">نسخة تجريبية: 0555 44 33 22 — الرمز 1234</p>
+      <button class="btn" type="submit" id="authSubmitBtn">دخول</button>
+      <p class="hint" id="authHint">نسخة تجريبية: 0555 44 33 22 — الرمز 1234</p>
     </form>
 
-    <p class="hint" style="margin-top:16px;">الحساب يُنشأ من طرف مطعم جانيتو فود. للحصول على رمز الدخول، تواصل مع الإدارة.</p>
+    <p class="hint" id="authNote" style="margin-top:16px;">الحساب يُنشأ من طرف مطعم جانيتو فود. للحصول على رمز الدخول، تواصل مع الإدارة.</p>
   </div>
 
   <div class="sheet-backdrop" id="sheetBackdrop">
@@ -372,20 +373,30 @@
     const LOCALE = LANG === 'fr' ? 'fr-DZ' : AR;
     const PENDING_KEY = 'janitou_pending_order';
     const STATUS = {
-      DRAFT: { ar: 'مسودة', cls: '' }, PENDING_APPROVAL: { ar: 'بانتظار الاعتماد', cls: 'progress' }, CONFIRMED: { ar: 'مؤكدة', cls: 'progress' }, PLANNED: { ar: 'مبرمجة', cls: 'progress' },
-      IN_PRODUCTION: { ar: 'قيد التحضير', cls: 'progress' }, PORTIONED_PACKAGED: { ar: 'معبأة', cls: 'progress' },
-      DISPATCHED: { ar: 'في التوصيل', cls: 'progress' }, DELIVERED: { ar: 'تم التسليم', cls: 'done' }, CANCELLED: { ar: 'ملغاة', cls: 'cancel' },
+      DRAFT: { ar: 'مسودة', fr: 'Brouillon', cls: '' },
+      PENDING_APPROVAL: { ar: 'بانتظار الاعتماد', fr: 'En attente de confirmation', cls: 'progress' },
+      CONFIRMED: { ar: 'مؤكدة', fr: 'Confirmée', cls: 'progress' },
+      PLANNED: { ar: 'مبرمجة', fr: 'Planifiée', cls: 'progress' },
+      IN_PRODUCTION: { ar: 'قيد التحضير', fr: 'En cuisine', cls: 'progress' },
+      PORTIONED_PACKAGED: { ar: 'معبأة', fr: 'Emballée', cls: 'progress' },
+      DISPATCHED: { ar: 'في التوصيل', fr: 'En livraison', cls: 'progress' },
+      DELIVERED: { ar: 'تم التسليم', fr: 'Livrée', cls: 'done' },
+      CANCELLED: { ar: 'ملغاة', fr: 'Annulée', cls: 'cancel' },
     };
     const CATEGORY_LABELS = {
-      STARTER: 'مقبلات', MAIN_COURSE: 'أطباق رئيسية', SIDE_DISH: 'أطباق جانبية',
-      DESSERT: 'تحليات', BEVERAGE: 'مشروبات', BREAD: 'خبز',
+      STARTER: LANG === 'fr' ? 'Entrées' : 'مقبلات',
+      MAIN_COURSE: LANG === 'fr' ? 'Plats principaux' : 'أطباق رئيسية',
+      SIDE_DISH: LANG === 'fr' ? 'Accompagnements' : 'أطباق جانبية',
+      DESSERT: LANG === 'fr' ? 'Desserts' : 'تحليات',
+      BEVERAGE: LANG === 'fr' ? 'Boissons' : 'مشروبات',
+      BREAD: LANG === 'fr' ? 'Pains' : 'خبز',
     };
     const ACCOUNT_STATUS = {
-      PENDING: { ar: 'حسابك قيد المراجعة. ستتمكن من الطلب بعد اعتماد الإدارة.', cls: 'warn' },
-      ACTIVE: { ar: '', cls: 'ok' },
-      SUSPENDED: { ar: 'الحساب موقوف مؤقتاً. تواصل مع الإدارة.', cls: 'danger' },
-      FROZEN: { ar: 'الحساب مجمد. تواصل مع الإدارة.', cls: 'danger' },
-      CANCELLED: { ar: 'الحساب ملغى.', cls: 'danger' },
+      PENDING: { ar: 'حسابك قيد المراجعة. ستتمكن من الطلب بعد اعتماد الإدارة.', fr: 'Votre compte est en cours d’approbation.', cls: 'warn' },
+      ACTIVE: { ar: '', fr: '', cls: 'ok' },
+      SUSPENDED: { ar: 'الحساب موقوف مؤقتاً. تواصل مع الإدارة.', fr: 'Compte temporairement suspendu.', cls: 'danger' },
+      FROZEN: { ar: 'الحساب مجمد. تواصل مع الإدارة.', fr: 'Compte gelé.', cls: 'danger' },
+      CANCELLED: { ar: 'الحساب ملغى.', fr: 'Compte résilié.', cls: 'danger' },
     };
     const state = { screen: 'menu', menuView: 'routine', account: null, days: [], dishes: [], catalogueSettings: null, catalogueCategory: 'ALL', config: null, orders: [], program: null, notifications: [] };
 
@@ -493,6 +504,14 @@
         const progL = $('#navProgLabel'); if (progL) progL.textContent = 'Programme';
         const ordL = $('#navOrdersLabel'); if (ordL) ordL.textContent = 'Commandes';
         $('#pageTitle').textContent = 'Menu & Routine';
+        const authBack = $('#authBackBtn'); if (authBack) authBack.textContent = '← Retour au menu';
+        const authTitle = $('#authTitle'); if (authTitle) authTitle.textContent = 'JANITOU FOOD';
+        const authSub = $('#authSubtitle'); if (authSub) authSub.textContent = 'Espace abonnés et entreprises';
+        const authPhone = $('#authPhoneLabel'); if (authPhone) authPhone.textContent = 'Numéro de téléphone';
+        const authPin = $('#authPinLabel'); if (authPin) authPin.textContent = 'Code d’accès PIN (4 chiffres)';
+        const authSubBtn = $('#authSubmitBtn'); if (authSubBtn) authSubBtn.textContent = 'Se connecter';
+        const authHint = $('#authHint'); if (authHint) authHint.textContent = 'Compte démo : 0555 44 33 22 — PIN 1234';
+        const authNote = $('#authNote'); if (authNote) authNote.textContent = 'Compte créé par Janitou Food. Pour activer une routine d’entreprise, contactez-nous.';
       }
       try {
         state.config = (await api('/config')).settings;
@@ -800,7 +819,7 @@
         event.preventDefault();
         const form = event.target;
         const summary = updateTotal();
-        if (summary.portions === 0) { toast('اختر طبقاً واحداً على الأقل', true); return; }
+        if (summary.portions === 0) { toast(fr ? 'Choisissez au moins un plat' : 'اختر طبقاً واحداً على الأقل', true); return; }
         const submit = $('#submitCatalogue');
         submit.disabled = true;
         const contact = {
@@ -823,12 +842,12 @@
           localStorage.setItem('janitou_guest_phone', contact.phone);
           state.guestPhone = contact.phone;
           closeSheet();
-          openSheet('تم تسجيل طلبك', `
-            <div class="banner ${result.order.pending ? 'warn' : 'ok'}">${result.order.pending ? 'تم استلام طلبكم وهو بانتظار اعتماد الإدارة. سنتواصل معكم بعد التأكيد.' : 'تم تأكيد طلبكم بنجاح. سنتواصل معكم لتأكيد التوصيل.'}</div>
-            <div class="total-box"><span>رقم الطلب</span><span>${esc(result.order.orderNumber)}</span></div>
-            <p class="hint">المجموع: ${money(result.order.totalPrice)}</p>
-            <button class="btn" onclick="closeSheet(); go('orders')">تتبع الطلب</button>
-            <button class="btn secondary" style="margin-top:8px;" onclick="closeSheet()">إغلاق</button>
+          openSheet(fr ? 'Commande enregistrée' : 'تم تسجيل طلبك', `
+            <div class="banner ${result.order.pending ? 'warn' : 'ok'}">${result.order.pending ? (fr ? 'Votre commande a bien été enregistrée et est en attente de confirmation par l’équipe Janitou Food. Nous vous contacterons après validation.' : 'تم استلام طلبكم وهو بانتظار اعتماد الإدارة. سنتواصل معكم بعد التأكيد.') : (fr ? 'Votre commande a été confirmée avec succès. Nous vous contacterons pour la livraison.' : 'تم تأكيد طلبكم بنجاح. سنتواصل معكم لتأكيد التوصيل.')}</div>
+            <div class="total-box"><span>${fr ? 'N° de commande' : 'رقم الطلب'}</span><span>${esc(result.order.orderNumber)}</span></div>
+            <p class="hint">${fr ? 'Total :' : 'المجموع:'} ${money(result.order.totalPrice)}</p>
+            <button class="btn" onclick="closeSheet(); go('orders')">${fr ? 'Suivre ma commande' : 'تتبع الطلب'}</button>
+            <button class="btn secondary" style="margin-top:8px;" onclick="closeSheet()">${fr ? 'Fermer' : 'إغلاق'}</button>
           `);
         } catch (error) {
           toast(error.message, true);
@@ -838,12 +857,13 @@
     }
 
     async function openOrder(date, existing) {
+      const fr = LANG === 'fr';
       let day = state.days.find((entry) => entry.date === date);
       if (!day) {
         try {
           const data = await api(`/menu?from=${date}&to=${date}`);
           day = data.days[0];
-          if (!day) throw new Error('لا توجد قائمة لهذا اليوم');
+          if (!day) throw new Error(fr ? 'Aucun menu disponible pour ce jour' : 'لا توجد قائمة لهذا اليوم');
           state.days.push(day);
         } catch (error) {
           toast(error.message, true);
@@ -859,46 +879,46 @@
       const initialExtras = Object.fromEntries((existing?.extras || []).map((entry) => [entry.name, entry.quantity]));
       const html = `
         <form id="orderForm">
-          <div class="mini-head">الغداء</div>
+          <div class="mini-head">${fr ? 'Déjeuner' : 'الغداء'}</div>
           <div class="qty-row">
-            <div><b>${esc(day.lunch ? day.lunch.displayName : 'لا يوجد طبق')}</b><small>${money(state.config.lunchPrice)} للوجبة</small></div>
+            <div><b>${esc(day.lunch ? day.lunch.displayName : (fr ? 'Pas de plat' : 'لا يوجد طبق'))}</b><small>${money(state.config.lunchPrice)} ${fr ? '/ repas' : 'للوجبة'}</small></div>
             <div class="stepper" data-service="lunch"><button type="button" data-step="-1">−</button><span id="lunchCount">${lunchStart}</span><button type="button" data-step="1">+</button></div>
           </div>
           <div class="pack" id="lunchPack">
-            <label><input type="radio" name="lunchPackaging" value="INDIVIDUAL" ${lunchPack === 'INDIVIDUAL' ? 'checked' : ''} /> تغليف فردي</label>
-            <label><input type="radio" name="lunchPackaging" value="COLLECTIVE" ${lunchPack === 'COLLECTIVE' ? 'checked' : ''} /> تغليف جماعي</label>
+            <label><input type="radio" name="lunchPackaging" value="INDIVIDUAL" ${lunchPack === 'INDIVIDUAL' ? 'checked' : ''} /> ${fr ? 'Individuel' : 'تغليف فردي'}</label>
+            <label><input type="radio" name="lunchPackaging" value="COLLECTIVE" ${lunchPack === 'COLLECTIVE' ? 'checked' : ''} /> ${fr ? 'Collectif (bacs)' : 'تغليف جماعي'}</label>
           </div>
 
-          <div class="mini-head">العشاء</div>
+          <div class="mini-head">${fr ? 'Dîner' : 'العشاء'}</div>
           <div class="qty-row">
-            <div><b>${esc(day.dinner ? day.dinner.displayName : 'لا يوجد طبق')}</b><small>${money(state.config.dinnerPrice)} للوجبة</small></div>
+            <div><b>${esc(day.dinner ? day.dinner.displayName : (fr ? 'Pas de plat' : 'لا يوجد طبق'))}</b><small>${money(state.config.dinnerPrice)} ${fr ? '/ repas' : 'للوجبة'}</small></div>
             <div class="stepper" data-service="dinner"><button type="button" data-step="-1">−</button><span id="dinnerCount">${dinnerStart}</span><button type="button" data-step="1">+</button></div>
           </div>
           <div class="pack" id="dinnerPack">
-            <label><input type="radio" name="dinnerPackaging" value="INDIVIDUAL" ${dinnerPack === 'INDIVIDUAL' ? 'checked' : ''} /> تغليف فردي</label>
-            <label><input type="radio" name="dinnerPackaging" value="COLLECTIVE" ${dinnerPack === 'COLLECTIVE' ? 'checked' : ''} /> تغليف جماعي</label>
+            <label><input type="radio" name="dinnerPackaging" value="INDIVIDUAL" ${dinnerPack === 'INDIVIDUAL' ? 'checked' : ''} /> ${fr ? 'Individuel' : 'تغليف فردي'}</label>
+            <label><input type="radio" name="dinnerPackaging" value="COLLECTIVE" ${dinnerPack === 'COLLECTIVE' ? 'checked' : ''} /> ${fr ? 'Collectif (bacs)' : 'تغليف جماعي'}</label>
           </div>
 
-          <div class="mini-head">البدائل</div>
+          <div class="mini-head">${fr ? 'Plats alternatifs' : 'البدائل'}</div>
           ${day.alternatives.slice(0, 8).map((dish) => `
             <div class="qty-row">
-              <div><b>${esc(dish.displayName)}</b><small>${money(dish.price)} للوجبة</small></div>
+              <div><b>${esc(dish.displayName)}</b><small>${money(dish.price)} ${fr ? '/ repas' : 'للوجبة'}</small></div>
               <div class="stepper" data-alt="${esc(dish.id)}"><button type="button" data-step="-1">−</button><span>${initialAlternatives[dish.id] || 0}</span><button type="button" data-step="1">+</button></div>
-            </div>`).join('') || '<p class="hint">لا توجد بدائل</p>'}
+            </div>`).join('') || `<p class="hint">${fr ? 'Aucune alternative' : 'لا توجد بدائل'}</p>`}
 
-          <div class="mini-head">الإضافات</div>
+          <div class="mini-head">${fr ? 'Suppléments' : 'الإضافات'}</div>
           ${(state.config.extras || []).map((extra) => `
             <div class="qty-row">
-              <div><b>${esc(extra.name)}</b><small>${money(extra.price)} · <span data-suggest>المقترح: 0</span></small></div>
+              <div><b>${esc(extra.name)}</b><small>${money(extra.price)} · <span data-suggest>${fr ? 'Suggéré : 0' : 'المقترح: 0'}</span></small></div>
               <div class="stepper" data-extra="${esc(extra.name)}"><button type="button" data-step="-1">−</button><span>${initialExtras[extra.name] || 0}</span><button type="button" data-step="1">+</button></div>
-            </div>`).join('') || '<p class="hint">لا توجد إضافات</p>'}
+            </div>`).join('') || `<p class="hint">${fr ? 'Aucun supplément' : 'لا توجد إضافات'}</p>`}
 
-          <div class="field" style="margin-top:14px;"><label>ملاحظات</label><textarea name="notes" rows="2" maxlength="300" placeholder="ملاحظات خاصة بالطلب">${esc(existing?.notes || '')}</textarea></div>
+          <div class="field" style="margin-top:14px;"><label>${fr ? 'Remarques (sans oignon, allergie...)' : 'ملاحظات'}</label><textarea name="notes" rows="2" maxlength="300" placeholder="${fr ? 'Sans sel, sauce à part...' : 'ملاحظات خاصة بالطلب'}">${esc(existing?.notes || '')}</textarea></div>
 
-          <div class="total-box"><span>المجموع</span><span id="orderTotal">0 دج</span></div>
-          <button class="btn" type="submit" id="submitOrder">${existing ? 'حفظ التعديل' : 'تأكيد الطلب'}</button>
+          <div class="total-box"><span>${fr ? 'Total' : 'المجموع'}</span><span id="orderTotal">0 دج</span></div>
+          <button class="btn" type="submit" id="submitOrder">${existing ? (fr ? 'Enregistrer les modifications' : 'حفظ التعديل') : (fr ? 'Confirmer la commande' : 'تأكيد الطلب')}</button>
         </form>`;
-      openSheet(`${existing ? 'تعديل طلب' : 'طلب'} ${formatDay(date)} ${formatDate(date)}`, html);
+      openSheet(`${existing ? (fr ? 'Modifier commande' : 'تعديل طلب') : (fr ? 'Commander' : 'طلب')} ${formatDay(date)} ${formatDate(date)}`, html);
       const draft = { lunch: lunchStart, dinner: dinnerStart, alternatives: { ...initialAlternatives }, extras: { ...initialExtras } };
       const updateTotal = () => {
         const meals = draft.lunch + draft.dinner;
@@ -944,7 +964,7 @@
           stepper.querySelector('span').textContent = String(quantity);
           stepper.querySelector('[data-step="1"]').disabled = quantity >= suggested;
           const suggest = stepper.closest('.qty-row').querySelector('[data-suggest]');
-          if (suggest) suggest.textContent = `المقترح: ${suggested}`;
+          if (suggest) suggest.textContent = `${fr ? 'Suggéré : ' : 'المقترح: '}${suggested}`;
         });
         $('#lunchPack').style.display = draft.lunch > 0 ? 'grid' : 'none';
         $('#dinnerPack').style.display = draft.dinner > 0 ? 'grid' : 'none';
@@ -973,7 +993,7 @@
 
       $('#orderForm').addEventListener('submit', async (event) => {
         event.preventDefault();
-        if (draft.lunch + draft.dinner === 0) { toast('اختر وجبة غداء أو عشاء', true); return; }
+        if (draft.lunch + draft.dinner === 0) { toast(fr ? 'Choisissez au moins un repas (déjeuner ou dîner)' : 'اختر وجبة غداء أو عشاء', true); return; }
         const form = event.target;
         const submit = $('#submitOrder');
         submit.disabled = true;
@@ -995,7 +1015,7 @@
             body: JSON.stringify(orderPayload),
           });
           closeSheet();
-          toast(existing ? 'تم حفظ التعديل' : 'تم تسجيل الطلب بنجاح');
+          toast(existing ? (fr ? 'Modifications enregistrées' : 'تم حفظ التعديل') : (fr ? 'Commande enregistrée avec succès' : 'تم تسجيل الطلب بنجاح'));
           loadGuestOrders();
           loadMenu();
           loadNotifications();
@@ -1114,25 +1134,28 @@
 
     function renderOrders() {
       const phone = guestPhone();
+      const fr = LANG === 'fr';
       const lookup = `
         <form class="card" id="trackForm" style="padding:14px; margin-bottom:12px;">
-          <div class="field"><label>رقم الهاتف</label><input name="phone" type="tel" maxlength="20" value="${esc(phone)}" required /></div>
-          <div class="field"><label>رقم الطلب (اختياري)</label><input name="orderNumber" maxlength="40" placeholder="JNT-..." /></div>
-          <button class="btn" type="submit">عرض الطلبات</button>
+          <div class="field"><label>${fr ? 'Numéro de téléphone' : 'رقم الهاتف'}</label><input name="phone" type="tel" maxlength="20" value="${esc(phone)}" placeholder="${fr ? '0555 44 33 22' : '0555 44 33 22'}" required /></div>
+          <div class="field"><label>${fr ? 'Numéro de commande (optionnel)' : 'رقم الطلب (اختياري)'}</label><input name="orderNumber" maxlength="40" placeholder="JNT-..." /></div>
+          <button class="btn" type="submit">${fr ? 'Rechercher mes commandes' : 'عرض الطلبات'}</button>
         </form>`;
       if (!phone) {
-        $('#ordersContent').innerHTML = `${lookup}<div class="empty">أدخل رقم الهاتف لعرض طلباتك.</div>`;
+        $('#ordersContent').innerHTML = `${lookup}<div class="empty">${fr ? 'Entrez votre numéro de téléphone pour afficher vos commandes.' : 'أدخل رقم الهاتف لعرض طلباتك.'}</div>`;
       } else if (!state.orders.length) {
-        $('#ordersContent').innerHTML = `${lookup}<div class="empty">لا توجد طلبات لهذا الرقم.</div>`;
+        $('#ordersContent').innerHTML = `${lookup}<div class="empty">${fr ? 'Aucune commande trouvée pour ce numéro.' : 'لا توجد طلبات لهذا الرقم.'}</div>`;
       } else {
         $('#ordersContent').innerHTML = `${lookup}<div class="list">${state.orders.map((order) => {
-          const status = STATUS[order.status] || { ar: order.status, cls: '' };
+          const status = STATUS[order.status] || { ar: order.status, fr: order.status, cls: '' };
+          const statusLabel = fr ? (status.fr || status.ar) : status.ar;
+          const serviceLabel = order.serviceTime === 'LUNCH' ? (fr ? 'Déjeuner' : 'غداء') : (fr ? 'Dîner' : 'عشاء');
           return `<article class="card row-card" style="flex-wrap:wrap;">
             <div style="flex:1; min-width:0;">
               <strong>${esc(formatDay(order.deliveryDate))} ${esc(formatDate(order.deliveryDate))}</strong>
-              <span>${order.totalPortions} وجبة · <bdi>${esc(order.orderNumber)}</bdi> · ${order.serviceTime === 'LUNCH' ? 'غداء' : 'عشاء'}</span>
+              <span>${order.totalPortions} ${fr ? 'portion(s)' : 'وجبة'} · <bdi>${esc(order.orderNumber)}</bdi> · ${serviceLabel}</span>
               ${order.items?.length ? `<small style="display:block;margin-top:4px;color:var(--muted);">${order.items.map((item) => `${esc(item.name)} ×${item.portions}`).join(' · ')}</small>` : ''}
-              <span class="status ${status.cls}" style="display:inline-block; margin-top:6px;">${esc(status.ar)}</span>
+              <span class="status ${status.cls}" style="display:inline-block; margin-top:6px;">${esc(statusLabel)}</span>
             </div>
             <span class="price-total">${money(order.totalPrice)}</span>
           </article>`;

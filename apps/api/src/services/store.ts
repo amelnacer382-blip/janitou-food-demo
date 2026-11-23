@@ -845,6 +845,12 @@ export class JanitouStore {
       changed = true;
     }
 
+    if (this.settings.cutoffDaysBefore === 1 && this.settings.cutoffTime === '18:00') {
+      this.settings.cutoffDaysBefore = 0;
+      this.settings.cutoffTime = '23:59';
+      changed = true;
+    }
+
     if (this.workshops.length === 0) {
       this.workshops = this.cloneSnapshot(initialWorkshops);
       changed = true;
