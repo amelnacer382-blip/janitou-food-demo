@@ -498,6 +498,17 @@
       if (screen === 'orders') loadGuestOrders();
     }
 
+    function updateAuthUI() {
+      const isAuth = Boolean(token() && state.account);
+      const logoutBtn = $('#logoutBtn');
+      if (logoutBtn) logoutBtn.style.display = isAuth ? 'flex' : 'none';
+      const bellBtn = $('#bellBtn');
+      if (bellBtn) bellBtn.style.display = isAuth ? 'flex' : 'none';
+      if (isAuth) {
+        void loadNotifications();
+      }
+    }
+
     async function boot() {
       if (LANG === 'fr') {
         const menuL = $('#navMenuLabel'); if (menuL) menuL.textContent = 'Menu & Routine';
@@ -515,6 +526,17 @@
       }
       try {
         state.config = (await api('/config')).settings;
+        if (token()) {
+          try {
+            const me = await api('/me');
+            state.account = me.account;
+            updateAuthUI();
+          } catch {
+            localStorage.removeItem(TOKEN_KEY);
+            state.account = null;
+            updateAuthUI();
+          }
+        }
         showApp();
         await loadMenu();
       } catch (error) {
@@ -1078,36 +1100,58 @@
 
     function renderProgram() {
       if (!state.program) return;
+      const fr = LANG === 'fr';
+      const companyBanner = state.account ? `
+        <div class="card" style="padding:14px 16px; margin-bottom:14px; background:linear-gradient(135deg, #2b1d11, #1a1008); color:#fef3c7; border:1px solid rgba(217,119,6,0.35);">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <span style="font-size:0.7rem; opacity:0.8; font-weight:700;">${fr ? 'ESPACE ENTREPRISE ABONNÉ' : 'حساب المشتركين والشركات'}</span>
+              <strong style="display:block; font-size:1.02rem; margin-top:2px; color:#fff;">${esc(state.account.companyName || state.account.contactName)}</strong>
+              <small style="opacity:0.85; font-size:0.75rem;">${esc(state.account.contactName ? `${state.account.contactName} · ` : '')}${esc(state.account.phone)}</small>
+            </div>
+            <div style="text-align:right;">
+              <span style="font-size:0.68rem; opacity:0.8; font-weight:700;">${fr ? 'SOLDE DISPONIBLE' : 'الرصيد المتاح'}</span>
+              <b style="display:block; font-size:1.15rem; color:#f59e0b; margin-top:2px;">${money(state.account.balance)}</b>
+            </div>
+          </div>
+        </div>
+      ` : '';
+
       const rows = state.program.map((entry) => {
         const active = entry.lunchPortions + entry.dinnerPortions > 0;
         return `<article class="card day-card">
-          <div class="day-head"><strong>${WEEKDAYS[entry.weekday]}</strong><span class="day-state ${active ? '' : 'closed'}">${active ? 'مفعّل' : 'غير مفعّل'}</span></div>
+          <div class="day-head">
+            <strong>${WEEKDAYS[entry.weekday]}</strong>
+            <span class="day-state ${active ? '' : 'closed'}">${active ? (fr ? 'Actif' : 'مفعّل') : (fr ? 'Inactif' : 'غير مفعّل')}</span>
+          </div>
           <div class="qty-row">
-            <div><b>الغداء</b><small>${money(state.config?.lunchPrice)} للوجبة</small></div>
+            <div><b>${fr ? 'Déjeuner' : 'الغداء'}</b><small>${money(state.config?.lunchPrice)} ${fr ? '/ repas' : 'للوجبة'}</small></div>
             <div class="stepper" data-prog-day="${entry.weekday}" data-prog-service="lunch">
               <button type="button" data-step="-1">−</button><span>${entry.lunchPortions}</span><button type="button" data-step="1">+</button>
             </div>
             <select class="pack-select" data-prog-pack-day="${entry.weekday}" data-prog-pack-service="lunch">
-              <option value="INDIVIDUAL" ${entry.lunchPackaging !== 'COLLECTIVE' ? 'selected' : ''}>فردي</option>
-              <option value="COLLECTIVE" ${entry.lunchPackaging === 'COLLECTIVE' ? 'selected' : ''}>جماعي</option>
+              <option value="INDIVIDUAL" ${entry.lunchPackaging !== 'COLLECTIVE' ? 'selected' : ''}>${fr ? 'Individuel' : 'فردي'}</option>
+              <option value="COLLECTIVE" ${entry.lunchPackaging === 'COLLECTIVE' ? 'selected' : ''}>${fr ? 'Collectif' : 'جماعي'}</option>
             </select>
           </div>
           <div class="qty-row">
-            <div><b>العشاء</b><small>${money(state.config?.dinnerPrice)} للوجبة</small></div>
+            <div><b>${fr ? 'Dîner' : 'العشاء'}</b><small>${money(state.config?.dinnerPrice)} ${fr ? '/ repas' : 'للوجبة'}</small></div>
             <div class="stepper" data-prog-day="${entry.weekday}" data-prog-service="dinner">
               <button type="button" data-step="-1">−</button><span>${entry.dinnerPortions}</span><button type="button" data-step="1">+</button>
             </div>
             <select class="pack-select" data-prog-pack-day="${entry.weekday}" data-prog-pack-service="dinner">
-              <option value="INDIVIDUAL" ${entry.dinnerPackaging !== 'COLLECTIVE' ? 'selected' : ''}>فردي</option>
-              <option value="COLLECTIVE" ${entry.dinnerPackaging === 'COLLECTIVE' ? 'selected' : ''}>جماعي</option>
+              <option value="INDIVIDUAL" ${entry.dinnerPackaging !== 'COLLECTIVE' ? 'selected' : ''}>${fr ? 'Individuel' : 'فردي'}</option>
+              <option value="COLLECTIVE" ${entry.dinnerPackaging === 'COLLECTIVE' ? 'selected' : ''}>${fr ? 'Collectif' : 'جماعي'}</option>
             </select>
           </div>
         </article>`;
       }).join('');
-      $('#programContent').innerHTML = `${statusBanner()}
-        <div class="banner ok">حدّد كميات الغداء والعشاء لكل يوم. بعد الحفظ تُنشأ الطلبات تلقائياً لليوم والستة أيام القادمة.</div>
+      $('#programContent').innerHTML = `
+        ${companyBanner}
+        ${statusBanner()}
+        <div class="banner ok">${fr ? 'Définissez les portions de déjeuner et dîner pour chaque jour. Les commandes des 7 prochains jours sont générées et planifiées automatiquement.' : 'حدّد كميات الغداء والعشاء لكل يوم. بعد الحفظ تُنشأ الطلبات تلقائياً لليوم والستة أيام القادمة.'}</div>
         ${rows}
-        <button class="btn" id="saveProgram" style="margin-top:6px;">حفظ البرنامج وتوليد الطلبات</button>`;
+        <button class="btn" id="saveProgram" style="margin-top:6px;">${fr ? 'Enregistrer le programme et générer les commandes' : 'حفظ البرنامج وتوليد الطلبات'}</button>`;
     }
 
     function guestPhone() {
@@ -1353,8 +1397,11 @@
       if (event.target.closest('#logoutBtn')) {
         const current = token();
         localStorage.removeItem(TOKEN_KEY);
+        state.account = null;
+        updateAuthUI();
         if (current) fetch(API + '/logout', { method: 'POST', headers: { Authorization: `Bearer ${current}` } }).catch(() => {});
-        showAuth();
+        toast(LANG === 'fr' ? 'Déconnexion réussie' : 'تم تسجيل الخروج');
+        go('menu');
         return;
       }
 
@@ -1420,26 +1467,39 @@
     $('#loginForm').addEventListener('submit', async (event) => {
       event.preventDefault();
       const form = new FormData(event.target);
+      const submitBtn = $('#authSubmitBtn');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = LANG === 'fr' ? 'Connexion en cours...' : 'جاري الدخول...';
+      }
       try {
+        const phone = String(form.get('phone') || '').trim();
+        const pin = String(form.get('pin') || '').trim();
         const data = await fetch(API + '/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: form.get('phone'), pin: form.get('pin') }),
+          body: JSON.stringify({ phone, pin }),
         }).then(async (res) => {
           const payload = await res.json();
-          if (!res.ok) throw new Error(payload.message || 'تعذر الدخول');
+          if (!res.ok) throw new Error(payload.message || (LANG === 'fr' ? 'Numéro de téléphone ou code PIN incorrect' : 'تعذر الدخول'));
           return payload;
         });
         localStorage.setItem(TOKEN_KEY, data.token);
         state.account = data.account;
         state.config = (await api('/config')).settings;
+        updateAuthUI();
         showApp();
-        await loadMenu();
-        await loadNotifications();
+        go('program');
+        await loadProgram();
         void flushPending();
-        toast('مرحباً ' + data.account.contactName);
+        toast(LANG === 'fr' ? 'Bienvenue ' + data.account.contactName : 'مرحباً ' + data.account.contactName);
       } catch (error) {
         toast(error.message, true);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = LANG === 'fr' ? 'Se connecter' : 'دخول';
+        }
       }
     });
 
