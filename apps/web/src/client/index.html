@@ -335,7 +335,12 @@
     .service-slot-icon {
       width: 34px; height: 34px; border-radius: 10px; background: #ffffff;
       border: 1px solid #ebdcc6; display: flex; align-items: center; justify-content: center;
-      font-size: 1.05rem; box-shadow: 0 2px 5px rgba(0,0,0,0.03); flex: 0 0 auto;
+      color: var(--teal-dark); box-shadow: 0 2px 5px rgba(0,0,0,0.03); flex: 0 0 auto;
+    }
+    .feature-icon-badge {
+      width: 38px; height: 38px; border-radius: 12px; background: var(--soft);
+      border: 1px solid rgba(217, 119, 6, 0.2); color: var(--gold-dark);
+      display: flex; align-items: center; justify-content: center; margin-bottom: 10px;
     }
     .service-slot-name b { display: block; font-size: 0.86rem; font-weight: 800; color: #241a10; }
     .service-slot-name small { display: block; color: var(--gold-dark); font-size: 0.72rem; font-weight: 700; margin-top: 1px; }
@@ -522,6 +527,18 @@
       SUSPENDED: { ar: 'الحساب موقوف مؤقتاً. تواصل مع الإدارة.', fr: 'Compte temporairement suspendu.', cls: 'danger' },
       FROZEN: { ar: 'الحساب مجمد. تواصل مع الإدارة.', fr: 'Compte gelé.', cls: 'danger' },
       CANCELLED: { ar: 'الحساب ملغى.', fr: 'Compte résilié.', cls: 'danger' },
+    };
+    const ICONS = {
+      sun: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-inline-end:5px;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>',
+      moon: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-inline-end:5px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+      calendar: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-inline-end:5px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+      clock: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+      chef: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>',
+      box: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+      invoice: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
+      user: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-inline-end:4px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+      phone: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-inline-end:4px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+      list: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-inline-end:4px;"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
     };
     const state = { screen: 'menu', menuView: 'routine', account: null, days: [], dishes: [], catalogueSettings: null, catalogueCategory: 'ALL', config: null, orders: [], program: null, notifications: [] };
 
@@ -750,7 +767,7 @@
 
         const lunchHtml = day.lunch ? `
           <div class="service-card">
-            <div class="service-badge">☀️ ${fr ? 'Déjeuner' : 'الغداء'}</div>
+            <div class="service-badge">${ICONS.sun} ${fr ? 'Déjeuner' : 'الغداء'}</div>
             <div class="dish-img">
               ${day.lunch.photoUrl ? `<img src="${esc(day.lunch.photoUrl)}" alt="${esc(day.lunch.displayName)}" loading="lazy" />` : `<div class="fallback">${esc(day.lunch.displayName.charAt(0))}</div>`}
             </div>
@@ -772,7 +789,7 @@
 
         const dinnerHtml = day.dinner ? `
           <div class="service-card">
-            <div class="service-badge">🌙 ${fr ? 'Dîner' : 'العشاء'}</div>
+            <div class="service-badge">${ICONS.moon} ${fr ? 'Dîner' : 'العشاء'}</div>
             <div class="dish-img">
               ${day.dinner.photoUrl ? `<img src="${esc(day.dinner.photoUrl)}" alt="${esc(day.dinner.displayName)}" loading="lazy" />` : `<div class="fallback">${esc(day.dinner.displayName.charAt(0))}</div>`}
             </div>
@@ -814,7 +831,7 @@
             </div>
             ${altsCount > 0 ? `
               <div class="routine-alts">
-                <span>🥗 ${fr ? `+ ${altsCount} alternatives` : `+ ${altsCount} بدائل متاحة`}</span>
+                <span>${ICONS.list} ${fr ? `+ ${altsCount} alternatives` : `+ ${altsCount} بدائل متاحة`}</span>
                 <small style="color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%;">${esc(altsSummary)}</small>
               </div>
             ` : ''}
@@ -1188,29 +1205,29 @@
         <section class="catalog-hero" style="margin-bottom:16px;">
           <small style="text-transform:uppercase; letter-spacing:0.08em; opacity:0.85;">JANITOU FOOD · CORPORATE & ROUTINE</small>
           <h2>${fr ? 'Programme Hebdo & Routine Entreprise' : 'البرنامج الأسبوعي وروتين الشركات'}</h2>
-          <p>${fr ? 'Définissez une routine de repas récurrente pour votre entreprise ou clinique. Vos plats sont cuisinés chaque jour avec amour et livrés chauds à heure fixe.' : 'حدّد روتين وجبات ثابت أسبوعياً لشركتك أو عيادتك. يتم تحضير وتوصيل الوجبات طازجة يومياً دون الحاجة لإعادة الطلب كل صباح.'}</p>
+          <p>${fr ? 'Définissez une routine de repas récurrente pour votre entreprise ou clinique. Vos plats sont cuisinés chaque jour avec rigueur et livrés chauds à heure fixe.' : 'حدّد روتين وجبات ثابت أسبوعياً لشركتك أو عيادتك. يتم تحضير وتوصيل الوجبات طازجة يومياً دون الحاجة لإعادة الطلب كل صباح.'}</p>
         </section>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
-          <div class="card" style="padding:14px; background:#fff; border-radius:16px;">
-            <div style="font-size:1.4rem; margin-bottom:6px;">⏱️</div>
-            <strong style="display:block; font-size:0.84rem; margin-bottom:4px; color:#1b120a;">${fr ? 'Zéro perte de temps' : 'توفير الوقت والجهد'}</strong>
-            <p style="margin:0; font-size:0.72rem; color:var(--muted); line-height:1.5;">${fr ? 'Pas de commande manuelle chaque matin. Livraison quotidienne garantie.' : 'لا داعي لإعادة الطلب يومياً. جدول وجبات محدد وتوصيل مضمون في الوقت.'}</p>
+          <div class="card" style="padding:16px; background:#fff; border-radius:16px;">
+            <div class="feature-icon-badge">${ICONS.clock}</div>
+            <strong style="display:block; font-size:0.84rem; margin-bottom:4px; color:#1b120a;">${fr ? 'Gain de temps quotidien' : 'توفير الوقت والجهد'}</strong>
+            <p style="margin:0; font-size:0.72rem; color:var(--muted); line-height:1.5;">${fr ? 'Plus de commande manuelle chaque matin. Livraison automatique planifiée.' : 'لا داعي لإعادة الطلب يومياً. جدول وجبات محدد وتوصيل مضمون في الوقت.'}</p>
           </div>
-          <div class="card" style="padding:14px; background:#fff; border-radius:16px;">
-            <div style="font-size:1.4rem; margin-bottom:6px;">🍲</div>
+          <div class="card" style="padding:16px; background:#fff; border-radius:16px;">
+            <div class="feature-icon-badge">${ICONS.chef}</div>
             <strong style="display:block; font-size:0.84rem; margin-bottom:4px; color:#1b120a;">${fr ? 'Recettes variées du Chef' : 'تنويع أطباق الشيف'}</strong>
-            <p style="margin:0; font-size:0.72rem; color:var(--muted); line-height:1.5;">${fr ? 'Plats traditionnels & équilibrés qui changent chaque jour sans lassitude.' : 'أطباق تقليدية متجددة يومياً تضمن توازن التغذية وجودة الطعم ورضا الموظفين.'}</p>
+            <p style="margin:0; font-size:0.72rem; color:var(--muted); line-height:1.5;">${fr ? 'Plats traditionnels et sains renouvelés chaque semaine.' : 'أطباق تقليدية متجددة أسبوعياً تضمن توازن التغذية ورضا الموظفين.'}</p>
           </div>
-          <div class="card" style="padding:14px; background:#fff; border-radius:16px;">
-            <div style="font-size:1.4rem; margin-bottom:6px;">📦</div>
+          <div class="card" style="padding:16px; background:#fff; border-radius:16px;">
+            <div class="feature-icon-badge">${ICONS.box}</div>
             <strong style="display:block; font-size:0.84rem; margin-bottom:4px; color:#1b120a;">${fr ? 'Conditionnement Pro' : 'تغليف احترافي وصحي'}</strong>
-            <p style="margin:0; font-size:0.72rem; color:var(--muted); line-height:1.5;">${fr ? 'Barquettes individuelles thermoscellées ou bacs thermo collectifs.' : 'تغليف فردي محكم الغلق أو أوعية حفظ حرارية جماعية تناسب قاعات الإطعام.'}</p>
+            <p style="margin:0; font-size:0.72rem; color:var(--muted); line-height:1.5;">${fr ? 'Barquettes individuelles thermoscellées ou bacs thermiques collectifs.' : 'تغليف فردي محكم الغلق أو أوعية حفظ حرارية جماعية تناسب قاعات الإطعام.'}</p>
           </div>
-          <div class="card" style="padding:14px; background:#fff; border-radius:16px;">
-            <div style="font-size:1.4rem; margin-bottom:6px;">🧾</div>
+          <div class="card" style="padding:16px; background:#fff; border-radius:16px;">
+            <div class="feature-icon-badge">${ICONS.invoice}</div>
             <strong style="display:block; font-size:0.84rem; margin-bottom:4px; color:#1b120a;">${fr ? 'Facturation simplifiée' : 'فوترة واضحة ومرنة'}</strong>
-            <p style="margin:0; font-size:0.72rem; color:var(--muted); line-height:1.5;">${fr ? 'Reçus clairs, suivi de solde en temps réel et facturation mensuelle.' : 'كشف حساب شفاف، تتبع للرصيد والمصاريف، وفواتير شهرية رسمية للشركات.'}</p>
+            <p style="margin:0; font-size:0.72rem; color:var(--muted); line-height:1.5;">${fr ? 'Reçus clairs, suivi de solde en temps réel et factures d’entreprise.' : 'كشف حساب شفاف، تتبع للرصيد والمصاريف، وفواتير رسمية للشركات.'}</p>
           </div>
         </div>
 
@@ -1256,8 +1273,8 @@
             <div>
               <h2 class="vip-company-name">${esc(state.account.companyName || state.account.contactName)}</h2>
               <div class="vip-contact-info">
-                <span>👤 ${esc(state.account.contactName)}</span>
-                <span>📞 <bdi>${esc(state.account.phone)}</bdi></span>
+                <span>${ICONS.user} ${esc(state.account.contactName)}</span>
+                <span>${ICONS.phone} <bdi>${esc(state.account.phone)}</bdi></span>
               </div>
             </div>
             <div class="vip-balance-pill">
@@ -1288,7 +1305,7 @@
 
           <div class="service-slot">
             <div class="service-slot-meta">
-              <div class="service-slot-icon">☀️</div>
+              <div class="service-slot-icon">${ICONS.sun}</div>
               <div class="service-slot-name">
                 <b>${fr ? 'Déjeuner' : 'الغداء'}</b>
                 <small>${money(lunchPrice)} ${fr ? '/ repas' : 'للوجبة'}</small>
@@ -1301,15 +1318,15 @@
                 <button type="button" data-step="1" aria-label="Plus">+</button>
               </div>
               <select class="pack-select pack-select-modern" data-prog-pack-day="${entry.weekday}" data-prog-pack-service="lunch" aria-label="${fr ? 'Emballage' : 'التغليف'}">
-                <option value="INDIVIDUAL" ${entry.lunchPackaging !== 'COLLECTIVE' ? 'selected' : ''}>📦 ${fr ? 'Individuel' : 'فردي'}</option>
-                <option value="COLLECTIVE" ${entry.lunchPackaging === 'COLLECTIVE' ? 'selected' : ''}>🍱 ${fr ? 'Collectif' : 'جماعي'}</option>
+                <option value="INDIVIDUAL" ${entry.lunchPackaging !== 'COLLECTIVE' ? 'selected' : ''}>${fr ? 'Individuel' : 'فردي'}</option>
+                <option value="COLLECTIVE" ${entry.lunchPackaging === 'COLLECTIVE' ? 'selected' : ''}>${fr ? 'Collectif (bacs)' : 'جماعي'}</option>
               </select>
             </div>
           </div>
 
           <div class="service-slot">
             <div class="service-slot-meta">
-              <div class="service-slot-icon">🌙</div>
+              <div class="service-slot-icon">${ICONS.moon}</div>
               <div class="service-slot-name">
                 <b>${fr ? 'Dîner' : 'العشاء'}</b>
                 <small>${money(dinnerPrice)} ${fr ? '/ repas' : 'للوجبة'}</small>
@@ -1322,8 +1339,8 @@
                 <button type="button" data-step="1" aria-label="Plus">+</button>
               </div>
               <select class="pack-select pack-select-modern" data-prog-pack-day="${entry.weekday}" data-prog-pack-service="dinner" aria-label="${fr ? 'Emballage' : 'التغليف'}">
-                <option value="INDIVIDUAL" ${entry.dinnerPackaging !== 'COLLECTIVE' ? 'selected' : ''}>📦 ${fr ? 'Individuel' : 'فردي'}</option>
-                <option value="COLLECTIVE" ${entry.dinnerPackaging === 'COLLECTIVE' ? 'selected' : ''}>🍱 ${fr ? 'Collectif' : 'جماعي'}</option>
+                <option value="INDIVIDUAL" ${entry.dinnerPackaging !== 'COLLECTIVE' ? 'selected' : ''}>${fr ? 'Individuel' : 'فردي'}</option>
+                <option value="COLLECTIVE" ${entry.dinnerPackaging === 'COLLECTIVE' ? 'selected' : ''}>${fr ? 'Collectif (bacs)' : 'جماعي'}</option>
               </select>
             </div>
           </div>
@@ -1344,7 +1361,7 @@
         ${companyBanner}
         ${statusBanner()}
         <div class="routine-notice-card">
-          <div class="routine-notice-icon">📋</div>
+          <div class="routine-notice-icon">${ICONS.calendar}</div>
           <div class="routine-notice-text">
             <strong>${fr ? 'Planification automatique sur 7 jours' : 'برمجة وتوليد تلقائي للـ 7 أيام القادمة'}</strong>
             ${fr ? 'Ajustez les portions souhaitées pour chaque jour. Les commandes sont générées et cuisinées automatiquement. Vous pouvez modifier ce programme à tout moment.' : 'حدّد كميات الغداء والعشاء لكل يوم. بعد الحفظ تُنشأ الطلبات تلقائياً لليوم والستة أيام القادمة وتُحضّر دون انقطاع.'}
