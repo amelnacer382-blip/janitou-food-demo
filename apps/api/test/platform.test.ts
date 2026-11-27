@@ -337,6 +337,15 @@ test('16. Data Persistence Across Reboots — mutations survive store restart an
   assert.ok(createdCustomer.id);
 
   store1.updateIngredientStock('ing-1', 99.5);
+  store1.updateAdvancedRules({ maxPastaPerWeek: 3, allowSameDayFries: true });
+  store1.recordLedgerEntry({
+    type: 'PAYMENT_RECEIVED',
+    referenceId: 'REC-PERSIST-1',
+    customerId: createdCustomer.id,
+    customerName: createdCustomer.contactName,
+    debit: 0,
+    credit: 2500,
+  });
   await store1.flush();
 
   // 2. Second instance (simulating server shutdown and reboot): loads from same storage
@@ -350,11 +359,16 @@ test('16. Data Persistence Across Reboots — mutations survive store restart an
   const persistedIngredient = store2.getIngredientById('ing-1');
   assert.ok(persistedIngredient);
   assert.equal(persistedIngredient.currentStock, 99.5);
+  assert.equal(store2.getAdvancedRules().maxPastaPerWeek, 3);
+  assert.equal(store2.getAdvancedRules().allowSameDayFries, true);
+  assert.equal(store2.getLedgerEntries().length, 1);
+  assert.equal(store2.verifyLedgerIntegrity().isValid, true);
 
   // 3. Database health reports active persistence
   const health = store2.getDatabaseHealth();
   assert.equal(health.status, 'healthy');
   assert.ok(health.totalRecords > 0);
+  assert.equal(existsSync(`${testStorage}.tmp`), false, 'Atomic persist must not leave .tmp files');
 
   // Cleanup test file
   if (existsSync(testStorage)) unlinkSync(testStorage);

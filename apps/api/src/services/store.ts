@@ -19,7 +19,7 @@ import {
   type DatabaseState,
   type StateBackend,
 } from '@janitou/database';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomInt, randomUUID } from 'node:crypto';
 import {
   DbSupplier,
   DbIngredient,
@@ -43,6 +43,16 @@ import {
   DbWorkOrderStep,
   DbRecipeVersion,
   DbAlternative,
+  DbPartnerProducer,
+  DbPartnerSupplyOrder,
+  DbAlternativeHold,
+  DbOperationalDayPrep,
+  DbPeriodicTask,
+  DbEmergencyIncident,
+  DbTrustedDevice,
+  DbPasswordResetToken,
+  PartnerQualityFlag,
+  PartnerFailureReason,
   WorkshopStation,
   AlternativeType,
   StaffRole,
@@ -101,6 +111,15 @@ const RESTORABLE_COLLECTIONS = [
   'workOrders',
   'recipeVersions',
   'alternatives',
+  'partners',
+  'partnerOrders',
+  'alternativeHolds',
+  'operationalPreps',
+  'periodicTasks',
+  'emergencyIncidents',
+  'trustedDevices',
+  'passwordResets',
+  'ledgerEntries',
 ] as const;
 
 type RestorableCollection = (typeof RESTORABLE_COLLECTIONS)[number];
@@ -380,6 +399,14 @@ export class JanitouStore {
   public workOrders: DbWorkOrder[] = [];
   public recipeVersions: DbRecipeVersion[] = [];
   public alternatives: DbAlternative[] = [];
+  public partners: DbPartnerProducer[] = [];
+  public partnerOrders: DbPartnerSupplyOrder[] = [];
+  public alternativeHolds: DbAlternativeHold[] = [];
+  public operationalPreps: DbOperationalDayPrep[] = [];
+  public periodicTasks: DbPeriodicTask[] = [];
+  public emergencyIncidents: DbEmergencyIncident[] = [];
+  public trustedDevices: DbTrustedDevice[] = [];
+  public passwordResets: DbPasswordResetToken[] = [];
   public invoices: DbInvoice[] = [];
   public payments: DbPayment[] = [];
   public auditLogs: AuditLogEntry[] = [];
@@ -426,6 +453,14 @@ export class JanitouStore {
         this.workOrders = (savedState.workOrders as DbWorkOrder[]) || [];
         this.recipeVersions = (savedState.recipeVersions as DbRecipeVersion[]) || [];
         this.alternatives = (savedState.alternatives as DbAlternative[]) || [];
+        this.partners = (savedState.partners as DbPartnerProducer[]) || [];
+        this.partnerOrders = (savedState.partnerOrders as DbPartnerSupplyOrder[]) || [];
+        this.alternativeHolds = (savedState.alternativeHolds as DbAlternativeHold[]) || [];
+        this.operationalPreps = (savedState.operationalPreps as DbOperationalDayPrep[]) || [];
+        this.periodicTasks = (savedState.periodicTasks as DbPeriodicTask[]) || [];
+        this.emergencyIncidents = (savedState.emergencyIncidents as DbEmergencyIncident[]) || [];
+        this.trustedDevices = (savedState.trustedDevices as DbTrustedDevice[]) || [];
+        this.passwordResets = (savedState.passwordResets as DbPasswordResetToken[]) || [];
         this.invoices = (savedState.invoices as DbInvoice[]) || [];
         this.payments = (savedState.payments as DbPayment[]) || [];
         this.auditLogs = (savedState.auditLogs as AuditLogEntry[]) || [];
@@ -434,6 +469,10 @@ export class JanitouStore {
         this.clientSessions = (savedState.clientSessions as ClientSessionRecord[]) || [];
         this.notifications = (savedState.notifications as DbNotification[]) || [];
         this.outboundMessages = (savedState.outboundMessages as DbOutboundMessage[]) || [];
+        this.ledgerEntries = Array.isArray(savedState.ledgerEntries)
+          ? (savedState.ledgerEntries as ImmutableLedgerEntry[])
+          : [];
+        this.advancedRules = this.normalizeAdvancedRules(savedState.advancedRules);
         this.settings = this.normalizeSettings(savedState.settings);
         this.pruneSessions();
         this.pruneAuditLogs();
@@ -490,6 +529,14 @@ export class JanitouStore {
       workOrders: this.workOrders,
       recipeVersions: this.recipeVersions,
       alternatives: this.alternatives,
+      partners: this.partners,
+      partnerOrders: this.partnerOrders,
+      alternativeHolds: this.alternativeHolds,
+      operationalPreps: this.operationalPreps,
+      periodicTasks: this.periodicTasks,
+      emergencyIncidents: this.emergencyIncidents,
+      trustedDevices: this.trustedDevices,
+      passwordResets: this.passwordResets,
       invoices: this.invoices,
       payments: this.payments,
       auditLogs: this.auditLogs,
@@ -498,6 +545,8 @@ export class JanitouStore {
       clientSessions: this.clientSessions,
       notifications: this.notifications,
       outboundMessages: this.outboundMessages,
+      ledgerEntries: this.ledgerEntries,
+      advancedRules: this.advancedRules,
       settings: this.settings,
     };
   }
@@ -566,6 +615,14 @@ export class JanitouStore {
     this.workOrders = [];
     this.recipeVersions = [];
     this.alternatives = [];
+    this.partners = [];
+    this.partnerOrders = [];
+    this.alternativeHolds = [];
+    this.operationalPreps = [];
+    this.periodicTasks = [];
+    this.emergencyIncidents = [];
+    this.trustedDevices = [];
+    this.passwordResets = [];
     this.invoices = JSON.parse(JSON.stringify(initialInvoices));
     this.payments = JSON.parse(JSON.stringify(initialPayments));
     this.auditLogs = [];
@@ -580,10 +637,10 @@ export class JanitouStore {
   }
 
   private seedStaffUsers(): void {
-    const seeds: { id: string; email: string; fullName: string; role: StaffRole; password: string }[] = [
-      { id: 'staff-admin', email: 'admin@janitou.dz', fullName: 'المدير العام', role: 'ADMIN', password: 'Admin@2026' },
-      { id: 'staff-ops', email: 'ops@janitou.dz', fullName: 'مسؤول العمليات', role: 'OPERATIONS_MANAGER', password: 'Ops@2026' },
-      { id: 'staff-chef', email: 'chef@janitou.dz', fullName: 'رئيس الورشة', role: 'CHEF_KITCHEN', password: 'Chef@2026' },
+    const seeds: { id: string; email: string; fullName: string; phone: string; role: StaffRole; password: string }[] = [
+      { id: 'staff-admin', email: 'admin@janitou.dz', fullName: 'المدير العام', phone: '0550 00 00 01', role: 'ADMIN', password: 'Admin@2026' },
+      { id: 'staff-ops', email: 'ops@janitou.dz', fullName: 'مسؤول العمليات', phone: '0550 00 00 02', role: 'OPERATIONS_MANAGER', password: 'Ops@2026' },
+      { id: 'staff-chef', email: 'chef@janitou.dz', fullName: 'رئيس الورشة', phone: '0550 00 00 03', role: 'CHEF_KITCHEN', password: 'Chef@2026' },
     ];
     const createdAt = new Date().toISOString();
     this.staffUsers = seeds.map((seed) => {
@@ -592,6 +649,7 @@ export class JanitouStore {
         id: seed.id,
         email: seed.email,
         fullName: seed.fullName,
+        phone: seed.phone,
         role: seed.role,
         passwordSalt: salt,
         passwordHash: hash,
@@ -748,6 +806,29 @@ export class JanitouStore {
     return { ...settings, extras: settings.extras.map((extra) => ({ ...extra })) };
   }
 
+  private normalizeAdvancedRules(raw: unknown): AdvancedRulesConfig {
+    const base: AdvancedRulesConfig = { ...DEFAULT_ADVANCED_RULES };
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return base;
+    const input = raw as Partial<AdvancedRulesConfig>;
+    const finiteInt = (value: unknown, fallback: number, min = 0, max = 365): number =>
+      typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max
+        ? value
+        : fallback;
+    const flag = (value: unknown, fallback: boolean): boolean =>
+      typeof value === 'boolean' ? value : fallback;
+    return {
+      maxPastaPerWeek: finiteInt(input.maxPastaPerWeek, base.maxPastaPerWeek, 0, 14),
+      allowSameDayFries: flag(input.allowSameDayFries, base.allowSameDayFries),
+      allowSameDayMincedMeat: flag(input.allowSameDayMincedMeat, base.allowSameDayMincedMeat),
+      saturdayMaxPrepMinutes: finiteInt(input.saturdayMaxPrepMinutes, base.saturdayMaxPrepMinutes, 5, 480),
+      minIngredientSpacingDays: finiteInt(input.minIngredientSpacingDays, base.minIngredientSpacingDays, 0, 30),
+      defaultOrderCutoffHour: finiteInt(input.defaultOrderCutoffHour, base.defaultOrderCutoffHour, 0, 23),
+      enableDietarySafetyWarnings: flag(input.enableDietarySafetyWarnings, base.enableDietarySafetyWarnings),
+      shortageAutoSubstitution: flag(input.shortageAutoSubstitution, base.shortageAutoSubstitution),
+      maxDeliveryRunRadiusKm: finiteInt(input.maxDeliveryRunRadiusKm, base.maxDeliveryRunRadiusKm, 1, 500),
+    };
+  }
+
   private normalizeSettings(raw: unknown): SimpleSettings {
     const base = this.cloneSettings(DEFAULT_SIMPLE_SETTINGS);
     if (!raw || typeof raw !== 'object') return base;
@@ -790,6 +871,24 @@ export class JanitouStore {
         input.collectivePackagingSize <= 100
           ? input.collectivePackagingSize
           : base.collectivePackagingSize,
+      offlineSessionTtlMinutes:
+        typeof input.offlineSessionTtlMinutes === 'number' &&
+        Number.isInteger(input.offlineSessionTtlMinutes) &&
+        input.offlineSessionTtlMinutes >= 1 &&
+        input.offlineSessionTtlMinutes <= 10080
+          ? input.offlineSessionTtlMinutes
+          : base.offlineSessionTtlMinutes,
+      offlineMaxRetries:
+        typeof input.offlineMaxRetries === 'number' &&
+        Number.isInteger(input.offlineMaxRetries) &&
+        input.offlineMaxRetries >= 1 &&
+        input.offlineMaxRetries <= 50
+          ? input.offlineMaxRetries
+          : base.offlineMaxRetries,
+      allowClientSelfRegistration:
+        typeof input.allowClientSelfRegistration === 'boolean'
+          ? input.allowClientSelfRegistration
+          : base.allowClientSelfRegistration,
       deadlineOverrides:
         input.deadlineOverrides && typeof input.deadlineOverrides === 'object'
           ? Object.fromEntries(
@@ -1280,7 +1379,7 @@ export class JanitouStore {
   }
 
   public createStaffUser(
-    data: { email: string; fullName: string; role: StaffRole; password: string },
+    data: { email: string; fullName: string; phone?: string; role: StaffRole; password: string },
     actor?: DbStaffUser
   ): DbStaffUser {
     const email = data.email.trim().toLowerCase();
@@ -1292,6 +1391,7 @@ export class JanitouStore {
       id: `staff-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       email,
       fullName: data.fullName.trim(),
+      phone: data.phone?.trim() || undefined,
       role: data.role,
       passwordSalt: salt,
       passwordHash: hash,
@@ -1307,7 +1407,7 @@ export class JanitouStore {
       action: 'CREATE_USER',
       entityType: 'STAFF_USER',
       entityId: user.id,
-      afterSnapshot: { email: user.email, fullName: user.fullName, role: user.role },
+      afterSnapshot: { email: user.email, fullName: user.fullName, phone: user.phone, role: user.role },
     });
     this.persist();
     return user;
@@ -1315,13 +1415,14 @@ export class JanitouStore {
 
   public updateStaffUser(
     userId: string,
-    patch: { fullName?: string; role?: StaffRole; isActive?: boolean; password?: string },
+    patch: { fullName?: string; phone?: string; role?: StaffRole; isActive?: boolean; password?: string },
     actor?: DbStaffUser
   ): DbStaffUser {
     const user = this.getStaffUserById(userId);
     if (!user) throw new Error('USER_NOT_FOUND');
     const before = {
       fullName: user.fullName,
+      phone: user.phone,
       role: user.role,
       isActive: user.isActive,
     };
@@ -1334,6 +1435,7 @@ export class JanitouStore {
       throw new Error('CANNOT_DISABLE_SELF');
     }
     if (patch.fullName) user.fullName = patch.fullName.trim();
+    if (patch.phone !== undefined) user.phone = patch.phone.trim() || undefined;
     if (patch.role) user.role = patch.role;
     if (patch.isActive !== undefined) user.isActive = patch.isActive;
     let revokedSessions = 0;
@@ -1494,6 +1596,10 @@ export class JanitouStore {
   public async createStaffSession(userId: string): Promise<string> {
     const token = randomUUID();
     this.pruneSessions();
+    // Decision 011: sensitive ADMIN accounts are limited to one active session at a time.
+    if (this.getStaffUserById(userId)?.role === 'ADMIN') {
+      this.staffSessions = this.staffSessions.filter((session) => session.userId !== userId);
+    }
     this.staffSessions.push({
       tokenHash: sha256(token),
       userId,
@@ -1893,7 +1999,13 @@ export class JanitouStore {
             recipe.id !== day.lunch?.id &&
             recipe.id !== day.dinner?.id
         )
-        .map((recipe) => this.toClientDishView(recipe));
+        .map((recipe) => {
+          const alt = this.alternatives.find((a) => a.recipeId === recipe.id && a.isActive);
+          return {
+            ...this.toClientDishView(recipe),
+            ...(alt ? { alternativeId: alt.id, remainingPortions: alt.remainingPortions } : {}),
+          };
+        });
       const deadline = this.orderDeadline(day.date);
       return {
         date: day.date,
@@ -1907,6 +2019,19 @@ export class JanitouStore {
           (this.settings.closedDates || []).includes(day.date),
       };
     });
+  }
+
+  private maxAllowedExtraQuantity(
+    configured: SimpleExtraSetting,
+    eligibleMeals: number,
+    customerId: string
+  ): number {
+    const customerOverride = this.getCustomerById(customerId)?.extraOverrides?.[configured.name];
+    if (typeof customerOverride === 'number' && Number.isInteger(customerOverride) && customerOverride >= 0) {
+      return customerOverride;
+    }
+    const perMeals = configured.perMeals && configured.perMeals > 0 ? configured.perMeals : 1;
+    return Math.ceil(eligibleMeals / perMeals);
   }
 
   private priceClientOrder(
@@ -2015,11 +2140,10 @@ export class JanitouStore {
       const configured = this.settings.extras.find((extra) => extra.name === requested.name);
       if (!configured) throw new Error('EXTRA_UNAVAILABLE');
       const quantity = portionValue(requested.quantity);
-      const perMeals = configured.perMeals && configured.perMeals > 0 ? configured.perMeals : 1;
       const eligibleMeals = configured.families?.length
         ? configured.families.reduce((sum, family) => sum + (familyCounts.get(family) || 0), 0)
         : totalMeals;
-      const suggested = Math.ceil(eligibleMeals / perMeals);
+      const suggested = this.maxAllowedExtraQuantity(configured, eligibleMeals, customerId);
       if (quantity === null || quantity > suggested) throw new Error('EXTRA_QUANTITY_INVALID');
       if (quantity === 0) continue;
       extras.push({ name: configured.name, quantity, unitPrice: configured.price });
@@ -2221,11 +2345,12 @@ export class JanitouStore {
       const quantity = Number(requested.quantity);
       if (!Number.isInteger(quantity) || quantity < 0 || quantity > 100) throw new Error('QUANTITY_INVALID');
       if (quantity === 0) continue;
-      const perMeals = configured.perMeals && configured.perMeals > 0 ? configured.perMeals : 1;
       const eligible = configured.families?.length
         ? configured.families.reduce((sum, family) => sum + (familyCounts.get(family) || 0), 0)
         : totalPortions;
-      if (quantity > Math.ceil(eligible / perMeals)) throw new Error('EXTRA_QUANTITY_INVALID');
+      if (quantity > this.maxAllowedExtraQuantity(configured, eligible, customer.id)) {
+        throw new Error('EXTRA_QUANTITY_INVALID');
+      }
       extras.push({ name: configured.name, quantity, unitPrice: configured.price });
       extrasTotal += quantity * configured.price;
     }
@@ -2346,6 +2471,7 @@ export class JanitouStore {
           notes: order.notes,
           source: order.source,
           orderMode: order.orderMode || 'MENU',
+          isExceptionOverride: Boolean(order.isExceptionOverride),
           items:
             order.orderMode === 'CATALOGUE'
               ? order.items.map((item) => ({
@@ -2438,6 +2564,9 @@ export class JanitouStore {
     };
     order.serviceTime = priced.lunchPortions > 0 ? MealServiceTime.LUNCH : MealServiceTime.DINNER;
     order.notes = input.notes?.trim() || undefined;
+    if (order.source === 'AUTOMATIC') {
+      order.isExceptionOverride = true;
+    }
     this.notify(
       'CLIENT',
       'ORDER_UPDATED',
@@ -4507,12 +4636,22 @@ export class JanitouStore {
         workOrders: this.workOrders,
         recipeVersions: this.recipeVersions,
         alternatives: this.alternatives,
+        partners: this.partners,
+        partnerOrders: this.partnerOrders,
+        alternativeHolds: this.alternativeHolds,
+        operationalPreps: this.operationalPreps,
+        periodicTasks: this.periodicTasks,
+        emergencyIncidents: this.emergencyIncidents,
+        trustedDevices: this.trustedDevices,
+        passwordResets: this.passwordResets,
         invoices: this.invoices,
         payments: this.payments,
+        ledgerEntries: this.ledgerEntries,
         auditLogs: this.auditLogs,
         staffUsers: this.staffUsers,
         notifications: this.notifications,
         outboundMessages: this.outboundMessages,
+        advancedRules: this.advancedRules,
         settings: this.settings,
       },
     };
@@ -4534,6 +4673,7 @@ export class JanitouStore {
       kdsBatches: this.kdsBatches.length,
       invoices: this.invoices.length,
       payments: this.payments.length,
+      ledgerEntries: this.ledgerEntries.length,
       auditLogs: this.auditLogs.length,
       staffUsers: this.staffUsers.length,
       notifications: this.notifications.length,
@@ -4543,6 +4683,14 @@ export class JanitouStore {
       workOrders: this.workOrders.length,
       recipeVersions: this.recipeVersions.length,
       alternatives: this.alternatives.length,
+      partners: this.partners.length,
+      partnerOrders: this.partnerOrders.length,
+      alternativeHolds: this.alternativeHolds.length,
+      operationalPreps: this.operationalPreps.length,
+      periodicTasks: this.periodicTasks.length,
+      emergencyIncidents: this.emergencyIncidents.length,
+      trustedDevices: this.trustedDevices.length,
+      passwordResets: this.passwordResets.length,
     };
   }
 
@@ -4584,6 +4732,7 @@ export class JanitouStore {
       if (data[key] !== undefined && !Array.isArray(data[key])) return false;
     }
     if (data.settings !== undefined && !isPlainObject(data.settings)) return false;
+    if (data.advancedRules !== undefined && !isPlainObject(data.advancedRules)) return false;
     if (data.staffUsers !== undefined && !isValidStaffSnapshot(data.staffUsers)) return false;
 
     const restoreList = <T>(key: RestorableCollection, current: T[]): T[] =>
@@ -4607,12 +4756,24 @@ export class JanitouStore {
     this.workOrders = restoreList('workOrders', this.workOrders);
     this.recipeVersions = restoreList('recipeVersions', this.recipeVersions);
     this.alternatives = restoreList('alternatives', this.alternatives);
+    this.partners = restoreList('partners', this.partners);
+    this.partnerOrders = restoreList('partnerOrders', this.partnerOrders);
+    this.alternativeHolds = restoreList('alternativeHolds', this.alternativeHolds);
+    this.operationalPreps = restoreList('operationalPreps', this.operationalPreps);
+    this.periodicTasks = restoreList('periodicTasks', this.periodicTasks);
+    this.emergencyIncidents = restoreList('emergencyIncidents', this.emergencyIncidents);
+    this.trustedDevices = restoreList('trustedDevices', this.trustedDevices);
+    this.passwordResets = restoreList('passwordResets', this.passwordResets);
     this.invoices = restoreList('invoices', this.invoices);
     this.payments = restoreList('payments', this.payments);
+    this.ledgerEntries = restoreList('ledgerEntries', this.ledgerEntries);
     this.auditLogs = restoreList('auditLogs', this.auditLogs);
     this.staffUsers = restoreList('staffUsers', this.staffUsers);
     this.notifications = restoreList('notifications', this.notifications);
     this.outboundMessages = restoreList('outboundMessages', this.outboundMessages);
+    if (data.advancedRules !== undefined) {
+      this.advancedRules = this.normalizeAdvancedRules(data.advancedRules);
+    }
     if (data.settings !== undefined) this.settings = this.normalizeSettings(data.settings);
 
     // Sessions are never restored: drop those whose principal no longer exists
@@ -5283,6 +5444,534 @@ export class JanitouStore {
       chainIntact: true,
       lastHash: prevHash,
     };
+  }
+
+  // ========================================================
+  // Client Dossier — BR-019, DOC-18 bis, DOC-30, DOC-36, Decision 011 & 012
+  // ========================================================
+  public setCustomerExtraOverrides(
+    customerId: string,
+    overrides: Record<string, number>,
+    actor?: { id: string; name: string }
+  ): DbCustomer | undefined {
+    const customer = this.getCustomerById(customerId);
+    if (!customer) return undefined;
+    const before = { extraOverrides: customer.extraOverrides || {} };
+    const clean: Record<string, number> = {};
+    for (const [name, qty] of Object.entries(overrides)) {
+      if (typeof qty === 'number' && Number.isInteger(qty) && qty >= 0 && qty <= 100) {
+        clean[name] = qty;
+      }
+    }
+    customer.extraOverrides = clean;
+    this.recordAuditEntry(actor, 'UPDATE_EXTRA_OVERRIDES', 'CUSTOMER', customerId, before, { extraOverrides: clean });
+    this.persist();
+    return customer;
+  }
+
+  public listPartnerProducers(): DbPartnerProducer[] {
+    return this.partners;
+  }
+
+  public createPartnerProducer(
+    input: { name: string; contactName: string; phone: string; specialties: string[]; isExceptional: boolean },
+    actor?: { id: string; name: string }
+  ): DbPartnerProducer {
+    const partner: DbPartnerProducer = {
+      id: `ptr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: input.name,
+      contactName: input.contactName,
+      phone: input.phone,
+      specialties: input.specialties,
+      isExceptional: input.isExceptional,
+      isActive: true,
+      metrics: { totalOrders: 0, onTimeCount: 0, qualityOkCount: 0, refusedCount: 0, score: 100 },
+      createdAt: new Date().toISOString(),
+    };
+    this.partners.push(partner);
+    this.recordAuditEntry(actor, 'CREATE_PARTNER', 'PARTNER', partner.id, undefined, partner);
+    this.persist();
+    return partner;
+  }
+
+  public updatePartnerProducer(
+    id: string,
+    patch: { isActive?: boolean; specialties?: string[] },
+    actor?: { id: string; name: string }
+  ): DbPartnerProducer | undefined {
+    const partner = this.partners.find((p) => p.id === id);
+    if (!partner) return undefined;
+    const before = this.cloneSnapshot(partner);
+    if (typeof patch.isActive === 'boolean') partner.isActive = patch.isActive;
+    if (Array.isArray(patch.specialties)) partner.specialties = patch.specialties;
+    this.recordAuditEntry(actor, 'UPDATE_PARTNER', 'PARTNER', partner.id, before, partner);
+    this.persist();
+    return partner;
+  }
+
+  public listPartnerSupplyOrders(date?: string): DbPartnerSupplyOrder[] {
+    return date ? this.partnerOrders.filter((o) => o.date === date) : this.partnerOrders;
+  }
+
+  public createPartnerSupplyOrder(
+    input: {
+      partnerId: string;
+      productName: string;
+      recipeId?: string;
+      date: string;
+      quantity: number;
+      exceptionalReason?: string;
+      notes?: string;
+    },
+    actor?: { id: string; name: string }
+  ): DbPartnerSupplyOrder {
+    const partner = this.partners.find((p) => p.id === input.partnerId && p.isActive);
+    if (!partner) throw new Error('PARTNER_NOT_FOUND');
+    if (partner.isExceptional && !input.exceptionalReason) {
+      throw new Error('EXCEPTIONAL_REASON_REQUIRED');
+    }
+    const order: DbPartnerSupplyOrder = {
+      id: `po-ptr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      partnerId: partner.id,
+      partnerName: partner.name,
+      productName: input.productName,
+      recipeId: input.recipeId,
+      date: input.date,
+      quantity: input.quantity,
+      isExceptional: partner.isExceptional,
+      exceptionalReason: input.exceptionalReason,
+      status: 'ORDERED',
+      qualityFlags: [],
+      notes: input.notes,
+      createdAt: new Date().toISOString(),
+    };
+    this.partnerOrders.push(order);
+    this.recordAuditEntry(actor, 'CREATE_PARTNER_ORDER', 'PARTNER_ORDER', order.id, undefined, order);
+    this.persist();
+    return order;
+  }
+
+  public receivePartnerSupplyOrder(
+    orderId: string,
+    input: {
+      status: 'RECEIVED' | 'PARTIAL' | 'REFUSED' | 'FAILED';
+      qualityFlags: PartnerQualityFlag[];
+      failureReason?: PartnerFailureReason;
+      notes?: string;
+    },
+    actor?: { id: string; name: string }
+  ): { order: DbPartnerSupplyOrder; partner: DbPartnerProducer } | undefined {
+    const order = this.partnerOrders.find((o) => o.id === orderId);
+    if (!order) return undefined;
+    const partner = this.partners.find((p) => p.id === order.partnerId);
+    if (!partner) return undefined;
+    if ((input.status === 'REFUSED' || input.status === 'FAILED') && !input.failureReason) {
+      throw new Error('FAILURE_REASON_REQUIRED');
+    }
+    const before = this.cloneSnapshot(order);
+    order.status = input.status;
+    order.qualityFlags = input.qualityFlags.length > 0 ? input.qualityFlags : ['MATCH'];
+    order.failureReason = input.failureReason;
+    order.notes = input.notes ?? order.notes;
+    order.receivedAt = new Date().toISOString();
+
+    const m = partner.metrics;
+    m.totalOrders += 1;
+    if (!order.qualityFlags.includes('LATE') && input.status !== 'FAILED') m.onTimeCount += 1;
+    if (
+      order.qualityFlags.includes('MATCH') &&
+      !order.qualityFlags.some((f) => f === 'QUALITY_ISSUE' || f === 'PACKAGING_ISSUE' || f === 'WRONG_PRODUCT')
+    ) {
+      m.qualityOkCount += 1;
+    }
+    if (input.status === 'REFUSED' || input.status === 'FAILED') m.refusedCount += 1;
+    const onTimeRatio = m.onTimeCount / m.totalOrders;
+    const qualityRatio = m.qualityOkCount / m.totalOrders;
+    const refusalPenalty = (m.refusedCount / m.totalOrders) * 40;
+    m.score = Math.max(0, Math.min(100, Math.round((onTimeRatio * 45 + qualityRatio * 55) - refusalPenalty)));
+
+    this.recordAuditEntry(actor, 'RECEIVE_PARTNER_ORDER', 'PARTNER_ORDER', order.id, before, { order, metrics: m });
+    this.persist();
+    return { order, partner };
+  }
+
+  public releaseExpiredAlternativeHolds(): number {
+    const now = Date.now();
+    let released = 0;
+    for (const hold of this.alternativeHolds) {
+      if (hold.status === 'HELD' && Date.parse(hold.expiresAt) <= now) {
+        hold.status = 'EXPIRED';
+        const alt = this.alternatives.find((a) => a.id === hold.alternativeId);
+        if (alt && typeof alt.remainingPortions === 'number') {
+          alt.remainingPortions += hold.portions;
+        }
+        released += 1;
+      }
+    }
+    if (released > 0) this.persist();
+    return released;
+  }
+
+  public createAlternativeHold(
+    alternativeId: string,
+    customerId: string,
+    portions: number,
+    ttlMinutes = 15
+  ): DbAlternativeHold {
+    this.releaseExpiredAlternativeHolds();
+    const alt = this.alternatives.find(
+      (a) => (a.id === alternativeId || a.recipeId === alternativeId) && a.isActive
+    );
+    if (!alt) throw new Error('ALTERNATIVE_UNAVAILABLE');
+    if (!Number.isInteger(portions) || portions < 1) throw new Error('QUANTITY_INVALID');
+    if (typeof alt.remainingPortions === 'number') {
+      if (alt.remainingPortions < portions) throw new Error('ALTERNATIVE_UNAVAILABLE');
+      alt.remainingPortions -= portions;
+    }
+    const hold: DbAlternativeHold = {
+      id: `hold-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      alternativeId: alt.id,
+      recipeId: alt.recipeId,
+      customerId,
+      portions,
+      status: 'HELD',
+      expiresAt: new Date(Date.now() + Math.max(1, ttlMinutes) * 60_000).toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+    this.alternativeHolds.push(hold);
+    this.persist();
+    return hold;
+  }
+
+  public confirmAlternativeHold(holdId: string): DbAlternativeHold | undefined {
+    this.releaseExpiredAlternativeHolds();
+    const hold = this.alternativeHolds.find((h) => h.id === holdId);
+    if (!hold || hold.status !== 'HELD') return undefined;
+    hold.status = 'CONFIRMED';
+    this.persist();
+    return hold;
+  }
+
+  public cancelAlternativeHold(holdId: string): DbAlternativeHold | undefined {
+    const hold = this.alternativeHolds.find((h) => h.id === holdId);
+    if (!hold || hold.status !== 'HELD') return undefined;
+    hold.status = 'CANCELLED';
+    const alt = this.alternatives.find((a) => a.id === hold.alternativeId);
+    if (alt && typeof alt.remainingPortions === 'number') {
+      alt.remainingPortions += hold.portions;
+    }
+    this.persist();
+    return hold;
+  }
+
+  public recordOperationalDayPrep(
+    input: {
+      operationalDate: string;
+      executedDate?: string;
+      taskName: string;
+      recipeId?: string;
+      quantityNotes?: string;
+      performedBy: string;
+    },
+    actor?: { id: string; name: string }
+  ): DbOperationalDayPrep {
+    const now = new Date();
+    const prep: DbOperationalDayPrep = {
+      id: `prep-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      operationalDate: input.operationalDate,
+      executedDate: input.executedDate || toIsoDate(now),
+      executedAt: now.toISOString(),
+      taskName: input.taskName,
+      recipeId: input.recipeId,
+      quantityNotes: input.quantityNotes,
+      performedBy: input.performedBy,
+      status: 'PLANNED',
+    };
+    this.operationalPreps.push(prep);
+    this.recordAuditEntry(actor, 'RECORD_OPERATIONAL_PREP', 'OPERATIONAL_DAY', prep.id, undefined, prep);
+    this.persist();
+    return prep;
+  }
+
+  public updateOperationalDayPrepStatus(
+    id: string,
+    status: 'PLANNED' | 'DONE'
+  ): DbOperationalDayPrep | undefined {
+    const prep = this.operationalPreps.find((p) => p.id === id);
+    if (!prep) return undefined;
+    prep.status = status;
+    this.persist();
+    return prep;
+  }
+
+  public getOperationalDaySummary(operationalDate: string): {
+    operationalDate: string;
+    prepTasks: DbOperationalDayPrep[];
+    workOrders: DbWorkOrder[];
+    ordersCount: number;
+    totalPortions: number;
+  } {
+    const prepTasks = this.operationalPreps.filter((p) => p.operationalDate === operationalDate);
+    const workOrders = this.workOrders.filter((w) => w.date === operationalDate);
+    const orders = this.orders.filter(
+      (o) => o.deliveryDate === operationalDate && o.status !== OrderStatus.CANCELLED
+    );
+    return {
+      operationalDate,
+      prepTasks,
+      workOrders,
+      ordersCount: orders.length,
+      totalPortions: orders.reduce((s, o) => s + o.totalPortions, 0),
+    };
+  }
+
+  public listPeriodicTasks(filters?: { weekday?: number; assigneeId?: string }): DbPeriodicTask[] {
+    return this.periodicTasks.filter((t) => {
+      if (filters?.weekday !== undefined && t.weekday !== filters.weekday) return false;
+      if (filters?.assigneeId && t.assigneeId !== filters.assigneeId) return false;
+      return true;
+    });
+  }
+
+  public createPeriodicTask(
+    input: Omit<DbPeriodicTask, 'id' | 'status'>,
+    actor?: { id: string; name: string }
+  ): DbPeriodicTask {
+    const task: DbPeriodicTask = {
+      ...input,
+      id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      status: 'SCHEDULED',
+    };
+    this.periodicTasks.push(task);
+    this.recordAuditEntry(actor, 'CREATE_PERIODIC_TASK', 'PERIODIC_TASK', task.id, undefined, task);
+    this.persist();
+    return task;
+  }
+
+  public updatePeriodicTask(
+    id: string,
+    patch: Partial<Pick<DbPeriodicTask, 'status' | 'assigneeId' | 'assigneeName' | 'notes' | 'weekday' | 'priority'>>,
+    actor?: { id: string; name: string }
+  ): DbPeriodicTask | undefined {
+    const task = this.periodicTasks.find((t) => t.id === id);
+    if (!task) return undefined;
+    const before = this.cloneSnapshot(task);
+    Object.assign(task, patch);
+    if (patch.status === 'COMPLETED') task.lastCompletedAt = new Date().toISOString();
+    this.recordAuditEntry(actor, 'UPDATE_PERIODIC_TASK', 'PERIODIC_TASK', task.id, before, task);
+    this.persist();
+    return task;
+  }
+
+  public getPrintableTaskSheet(date: string, assigneeId?: string): {
+    date: string;
+    weekday: number;
+    periodicTasks: DbPeriodicTask[];
+    workOrders: DbWorkOrder[];
+    html: string;
+  } {
+    const weekday = new Date(`${date}T12:00:00`).getDay();
+    const periodicTasks = this.listPeriodicTasks({ weekday, assigneeId });
+    const workOrders = this.workOrders.filter((w) => w.date === date);
+    const taskRows = periodicTasks
+      .map((t) => `<li><strong>${t.title}</strong> (${t.department} · ${t.assigneeName} · ${t.estimatedMinutes} min) [${t.status}]</li>`)
+      .join('');
+    const woRows = workOrders
+      .map((w) => `<li><strong>${w.recipeName}</strong> — ${w.plannedPortions} portions (${w.station}) [${w.status}]</li>`)
+      .join('');
+    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Fiche Tâches ${date}</title></head><body><h1>JANITOU FOOD — Fiche Opérationnelle ${date}</h1><h2>Ordres de travail</h2><ul>${woRows || '<li>Aucun ordre</li>'}</ul><h2>Tâches périodiques</h2><ul>${taskRows || '<li>Aucune tâche</li>'}</ul></body></html>`;
+    return { date, weekday, periodicTasks, workOrders, html };
+  }
+
+  public listEmergencyIncidents(): DbEmergencyIncident[] {
+    return this.emergencyIncidents;
+  }
+
+  public activateEmergencyIncident(
+    input: {
+      severity: DbEmergencyIncident['severity'];
+      suggestedSeverity?: DbEmergencyIncident['severity'];
+      title: string;
+      description: string;
+      escalationChain: { primary: string; backup1: string; backup2: string };
+    },
+    actor: { id: string; name: string }
+  ): DbEmergencyIncident {
+    const incident: DbEmergencyIncident = {
+      id: `emg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      severity: input.severity,
+      suggestedSeverity: input.suggestedSeverity || input.severity,
+      title: input.title,
+      description: input.description,
+      activatedBy: actor.name,
+      activatedAt: new Date().toISOString(),
+      status: 'ACTIVE',
+      escalationChain: input.escalationChain,
+      conflicts: [],
+    };
+    this.emergencyIncidents.unshift(incident);
+    this.notify('STAFF', 'EMERGENCY_ACTIVATED', { title: incident.title, severity: incident.severity });
+    this.recordAuditEntry(actor, 'ACTIVATE_EMERGENCY', 'EMERGENCY', incident.id, undefined, incident);
+    this.persist();
+    return incident;
+  }
+
+  public addEmergencyConflict(
+    incidentId: string,
+    description: string,
+    actor?: { id: string; name: string }
+  ): DbEmergencyIncident | undefined {
+    const incident = this.emergencyIncidents.find((i) => i.id === incidentId);
+    if (!incident) return undefined;
+    incident.status = 'RECONCILING';
+    incident.conflicts.push({
+      id: `conf-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+      description,
+    });
+    this.recordAuditEntry(actor, 'LOG_EMERGENCY_CONFLICT', 'EMERGENCY', incident.id, undefined, incident);
+    this.persist();
+    return incident;
+  }
+
+  public resolveEmergencyIncident(
+    incidentId: string,
+    input: {
+      resolutions?: { conflictId: string; resolution: string }[];
+      reconciliationNotes?: string;
+      close?: boolean;
+    },
+    actor: { id: string; name: string }
+  ): DbEmergencyIncident | undefined {
+    const incident = this.emergencyIncidents.find((i) => i.id === incidentId);
+    if (!incident) return undefined;
+    const before = this.cloneSnapshot(incident);
+    if (Array.isArray(input.resolutions)) {
+      for (const item of input.resolutions) {
+        const conflict = incident.conflicts.find((c) => c.id === item.conflictId);
+        if (conflict && item.resolution.trim()) {
+          conflict.resolution = item.resolution.trim();
+          conflict.resolvedBy = actor.name;
+          conflict.resolvedAt = new Date().toISOString();
+        }
+      }
+    }
+    if (input.reconciliationNotes) incident.reconciliationNotes = input.reconciliationNotes;
+    if (input.close) {
+      if (incident.conflicts.some((c) => !c.resolution)) {
+        throw new Error('UNRESOLVED_CONFLICTS');
+      }
+      incident.status = 'CLOSED';
+      incident.closedBy = actor.name;
+      incident.closedAt = new Date().toISOString();
+    } else if (incident.status === 'ACTIVE') {
+      incident.status = 'RECONCILING';
+    }
+    this.recordAuditEntry(actor, 'RESOLVE_EMERGENCY', 'EMERGENCY', incident.id, before, incident);
+    this.persist();
+    return incident;
+  }
+
+  public registerTrustedDevice(userId: string, deviceName: string): { device: DbTrustedDevice; deviceToken: string } {
+    const deviceToken = randomUUID();
+    const now = Date.now();
+    const device: DbTrustedDevice = {
+      id: `dev-${now}-${Math.random().toString(36).slice(2, 6)}`,
+      userId,
+      deviceName: deviceName.slice(0, 80) || 'Appareil',
+      tokenHash: sha256(deviceToken),
+      lastSeenAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+    this.trustedDevices.push(device);
+    this.persist();
+    return { device, deviceToken };
+  }
+
+  public listTrustedDevices(userId?: string): DbTrustedDevice[] {
+    const now = Date.now();
+    this.trustedDevices = this.trustedDevices.filter((d) => Date.parse(d.expiresAt) > now);
+    return userId ? this.trustedDevices.filter((d) => d.userId === userId) : this.trustedDevices;
+  }
+
+  public revokeTrustedDevice(deviceId: string): boolean {
+    const before = this.trustedDevices.length;
+    this.trustedDevices = this.trustedDevices.filter((d) => d.id !== deviceId);
+    if (this.trustedDevices.length === before) return false;
+    this.persist();
+    return true;
+  }
+
+  public verifyTrustedDevice(userId: string, deviceToken: string): boolean {
+    const tokenHash = sha256(deviceToken);
+    const match = this.listTrustedDevices(userId).find((d) => d.tokenHash === tokenHash);
+    if (!match) return false;
+    match.lastSeenAt = new Date().toISOString();
+    this.persist();
+    return true;
+  }
+
+  public requestStaffPasswordReset(
+    email: string,
+    channel: 'WHATSAPP' | 'EMAIL'
+  ): { requested: boolean; channel: 'WHATSAPP' | 'EMAIL'; expiresAt: string } {
+    const user = this.getStaffUserByEmail(email);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    if (!user || !user.isActive) return { requested: true, channel, expiresAt };
+    const code = String(randomInt(100000, 1000000));
+    const reset: DbPasswordResetToken = {
+      id: `rst-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      userId: user.id,
+      channel,
+      codeHash: sha256(code),
+      expiresAt,
+    };
+    this.passwordResets.push(reset);
+    const whatsappRecipient = user.phone && normalizePhone(user.phone).length >= 6 ? user.phone : '';
+    if (channel === 'WHATSAPP' && whatsappRecipient) {
+      this.outboundMessages.push({
+        id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        channel: 'WHATSAPP',
+        to: whatsappRecipient,
+        body: `JANITOU FOOD — Code de réinitialisation : ${code}`,
+        status: 'QUEUED',
+        attempts: 0,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    this.recordAuditEntry(
+      { id: user.id, name: user.fullName },
+      'REQUEST_PASSWORD_RESET',
+      'STAFF_USER',
+      user.id,
+      undefined,
+      { channel, expiresAt }
+    );
+    this.persist();
+    return { requested: true, channel, expiresAt };
+  }
+
+  public confirmStaffPasswordReset(email: string, code: string, newPassword: string): boolean {
+    const user = this.getStaffUserByEmail(email);
+    if (!user || !user.isActive) return false;
+    const now = Date.now();
+    const codeHash = sha256(code.trim());
+    const match = this.passwordResets.find(
+      (r) => r.userId === user.id && !r.usedAt && Date.parse(r.expiresAt) > now && r.codeHash === codeHash
+    );
+    if (!match) return false;
+    match.usedAt = new Date().toISOString();
+    const { salt, hash } = hashPin(newPassword);
+    user.passwordSalt = salt;
+    user.passwordHash = hash;
+    this.staffSessions = this.staffSessions.filter((s) => s.userId !== user.id);
+    this.recordAuditEntry(
+      { id: user.id, name: user.fullName },
+      'CONFIRM_PASSWORD_RESET',
+      'STAFF_USER',
+      user.id
+    );
+    this.persist();
+    return true;
   }
 }
 

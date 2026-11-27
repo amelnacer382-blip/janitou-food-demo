@@ -95,6 +95,8 @@ export interface DbCustomer {
   accountBalance: number; // in DZD (solde prépayé/crédit)
   /** Default percentage discount applied to new invoices (0-100). */
   discountPercent?: number;
+  /** BR-019: per-customer maximum allowed extra quantity overrides. */
+  extraOverrides?: Record<string, number>;
   whatsAppLink: string;
   subscriptionType: 'INDIVIDUAL' | 'CORPORATE' | 'SUBSIDIARY';
   preferredDistributionType: 'STANDARD_DELIVERY' | 'EXPRESS' | 'PICKUP';
@@ -112,6 +114,7 @@ export interface DbStaffUser {
   id: string;
   email: string;
   fullName: string;
+  phone?: string;
   role: StaffRole;
   passwordSalt: string;
   passwordHash: string;
@@ -171,6 +174,8 @@ export interface DbOrder {
   invoiceId?: string;
   cancelledAt?: string;
   cancellationReason?: string;
+  /** BR-015: marks a single-day exception on an automatically generated subscription order. */
+  isExceptionOverride?: boolean;
 }
 
 export interface DbInvoice {
@@ -346,6 +351,140 @@ export interface DbAlternative {
   validFrom?: string;
   validTo?: string;
   createdAt: string;
+}
+
+export type PartnerQualityFlag =
+  | 'MATCH'
+  | 'SHORTAGE'
+  | 'LATE'
+  | 'QUALITY_ISSUE'
+  | 'PACKAGING_ISSUE'
+  | 'WRONG_PRODUCT'
+  | 'REFUSED';
+
+export type PartnerFailureReason =
+  | 'RAW_MATERIAL_SHORTAGE'
+  | 'PRODUCTION_LOAD'
+  | 'STAFF_SHORTAGE'
+  | 'EQUIPMENT_FAILURE'
+  | 'SUPPLIER_DELAY'
+  | 'TRANSPORT_ISSUE'
+  | 'OTHER';
+
+export interface DbPartnerProducer {
+  id: string;
+  name: string;
+  contactName: string;
+  phone: string;
+  specialties: string[];
+  isExceptional: boolean;
+  isActive: boolean;
+  metrics: {
+    totalOrders: number;
+    onTimeCount: number;
+    qualityOkCount: number;
+    refusedCount: number;
+    score: number;
+  };
+  createdAt: string;
+}
+
+export interface DbPartnerSupplyOrder {
+  id: string;
+  partnerId: string;
+  partnerName: string;
+  productName: string;
+  recipeId?: string;
+  date: string;
+  quantity: number;
+  isExceptional: boolean;
+  exceptionalReason?: string;
+  status: 'ORDERED' | 'RECEIVED' | 'PARTIAL' | 'REFUSED' | 'FAILED';
+  qualityFlags: PartnerQualityFlag[];
+  failureReason?: PartnerFailureReason;
+  notes?: string;
+  createdAt: string;
+  receivedAt?: string;
+}
+
+export interface DbAlternativeHold {
+  id: string;
+  alternativeId: string;
+  recipeId: string;
+  customerId: string;
+  portions: number;
+  status: 'HELD' | 'CONFIRMED' | 'EXPIRED' | 'CANCELLED';
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface DbOperationalDayPrep {
+  id: string;
+  operationalDate: string;
+  executedDate: string;
+  executedAt: string;
+  taskName: string;
+  recipeId?: string;
+  quantityNotes?: string;
+  performedBy: string;
+  status: 'PLANNED' | 'DONE';
+}
+
+export interface DbPeriodicTask {
+  id: string;
+  title: string;
+  description?: string;
+  department: string;
+  assigneeId: string;
+  assigneeName: string;
+  weekday: number;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  estimatedMinutes: number;
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED';
+  notes?: string;
+  lastCompletedAt?: string;
+}
+
+export interface DbEmergencyConflict {
+  id: string;
+  description: string;
+  resolution?: string;
+  resolvedBy?: string;
+  resolvedAt?: string;
+}
+
+export interface DbEmergencyIncident {
+  id: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  suggestedSeverity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  title: string;
+  description: string;
+  activatedBy: string;
+  activatedAt: string;
+  status: 'ACTIVE' | 'RECONCILING' | 'CLOSED';
+  escalationChain: { primary: string; backup1: string; backup2: string };
+  reconciliationNotes?: string;
+  conflicts: DbEmergencyConflict[];
+  closedBy?: string;
+  closedAt?: string;
+}
+
+export interface DbTrustedDevice {
+  id: string;
+  userId: string;
+  deviceName: string;
+  tokenHash: string;
+  lastSeenAt: string;
+  expiresAt: string;
+}
+
+export interface DbPasswordResetToken {
+  id: string;
+  userId: string;
+  channel: 'WHATSAPP' | 'EMAIL';
+  codeHash: string;
+  expiresAt: string;
+  usedAt?: string;
 }
 
 // Initial Realistic Seed Data for JANITOU FOOD

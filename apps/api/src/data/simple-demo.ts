@@ -135,6 +135,11 @@ export interface SimpleSettings {
   deadlineOverrides: Record<string, string>;
   /** Number of individual meals packed in one collective crate. */
   collectivePackagingSize: number;
+  /** DOC-19 bis: offline draft session validity (minutes) and max retry count. */
+  offlineSessionTtlMinutes?: number;
+  offlineMaxRetries?: number;
+  /** DOC-09 / BR-001: allow customer self-registration as PENDING (default false). */
+  allowClientSelfRegistration?: boolean;
 }
 
 export const DEFAULT_SIMPLE_SETTINGS: SimpleSettings = {
@@ -153,6 +158,9 @@ export const DEFAULT_SIMPLE_SETTINGS: SimpleSettings = {
   closedDates: [],
   deadlineOverrides: {},
   collectivePackagingSize: 10,
+  offlineSessionTtlMinutes: 120,
+  offlineMaxRetries: 5,
+  allowClientSelfRegistration: false,
 };
 
 export interface SimpleDishView {
@@ -224,6 +232,8 @@ export type PackagingType = 'INDIVIDUAL' | 'COLLECTIVE';
 
 export interface ClientDishView extends SimpleDishView {
   price: number;
+  alternativeId?: string;
+  remainingPortions?: number;
 }
 
 export interface ClientMenuDayView {
@@ -269,6 +279,7 @@ export interface ClientOrderView {
   notes?: string;
   source?: 'CLIENT' | 'ADMIN' | 'AUTOMATIC';
   orderMode?: 'MENU' | 'CATALOGUE';
+  isExceptionOverride?: boolean;
   editable: boolean;
   invoiceNumber?: string;
   isPaid: boolean;

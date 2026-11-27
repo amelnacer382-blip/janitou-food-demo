@@ -1,0 +1,23 @@
+{
+  "name": "janitou-client-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Wrapper mobile Capacitor (Android & iOS) pour l'application client JANITOU FOOD",
+  "scripts": {
+    "sync:web": "node scripts/sync-web.mjs",
+    "cap:sync": "node scripts/sync-web.mjs && npx cap sync",
+    "android:open": "npx cap open android",
+    "ios:open": "npx cap open ios",
+    "android:aab": "node scripts/sync-web.mjs && npx cap sync android && cd android && ./gradlew bundleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0",
+    "@capacitor/network": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  }
+}

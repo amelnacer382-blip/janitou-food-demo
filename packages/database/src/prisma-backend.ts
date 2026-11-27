@@ -43,6 +43,15 @@ function countRecords(state?: Omit<DatabaseState, 'metadata'>): { tables: Record
     workOrders: state?.workOrders?.length || 0,
     recipeVersions: state?.recipeVersions?.length || 0,
     alternatives: state?.alternatives?.length || 0,
+    partners: state?.partners?.length || 0,
+    partnerOrders: state?.partnerOrders?.length || 0,
+    alternativeHolds: state?.alternativeHolds?.length || 0,
+    operationalPreps: state?.operationalPreps?.length || 0,
+    periodicTasks: state?.periodicTasks?.length || 0,
+    emergencyIncidents: state?.emergencyIncidents?.length || 0,
+    trustedDevices: state?.trustedDevices?.length || 0,
+    passwordResets: state?.passwordResets?.length || 0,
+    ledgerEntries: state?.ledgerEntries?.length || 0,
   };
   return { tables, total: Object.values(tables).reduce((sum, count) => sum + count, 0) };
 }
@@ -89,10 +98,21 @@ export class PrismaStateBackend implements StateBackend {
     this.mirroredAuditIds = new Set(auditLogs.map((log) => log.id));
     const state = payload as DatabaseState;
     if (accounts.length > 0) {
+      const snapshotPhones = new Map<string, string>();
+      for (const raw of state.staffUsers || []) {
+        if (raw && typeof raw === 'object' && 'id' in raw && 'phone' in raw) {
+          const id = (raw as { id?: unknown }).id;
+          const phone = (raw as { phone?: unknown }).phone;
+          if (typeof id === 'string' && typeof phone === 'string' && phone) {
+            snapshotPhones.set(id, phone);
+          }
+        }
+      }
       state.staffUsers = accounts.map((account) => ({
         id: account.id,
         email: account.email,
         fullName: account.fullName,
+        phone: snapshotPhones.get(account.id),
         role: account.role,
         passwordSalt: account.passwordSalt,
         passwordHash: account.passwordHash,

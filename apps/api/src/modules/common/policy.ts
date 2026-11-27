@@ -19,6 +19,10 @@ export type Permission =
   | 'accounting.write'
   | 'analytics.read'
   | 'audit.read'
+  | 'partners.read'
+  | 'partners.write'
+  | 'tasks.read'
+  | 'tasks.write'
   | 'admin.system';
 
 /**
@@ -36,6 +40,8 @@ const ROLE_PERMISSIONS: Record<StaffRole, Permission[]> = {
     'purchasing.read', 'purchasing.write',
     'delivery.read', 'delivery.write',
     'accounting.read', 'accounting.write',
+    'partners.read', 'partners.write',
+    'tasks.read', 'tasks.write',
     'analytics.read', 'audit.read', 'admin.system',
   ],
   OPERATIONS_MANAGER: [
@@ -47,6 +53,8 @@ const ROLE_PERMISSIONS: Record<StaffRole, Permission[]> = {
     'purchasing.read', 'purchasing.write',
     'delivery.read', 'delivery.write',
     'accounting.read', 'accounting.write',
+    'partners.read', 'partners.write',
+    'tasks.read', 'tasks.write',
     'analytics.read', 'audit.read',
   ],
   CHEF_KITCHEN: [
@@ -54,19 +62,25 @@ const ROLE_PERMISSIONS: Record<StaffRole, Permission[]> = {
     'menus.read', 'menus.write',
     'orders.read', 'orders.write',
     'production.read', 'production.write',
+    'partners.read',
+    'tasks.read', 'tasks.write',
   ],
   PURCHASING_MANAGER: [
     'recipes.read',
     'production.read',
     'purchasing.read', 'purchasing.write',
+    'partners.read', 'partners.write',
+    'tasks.read',
   ],
   PACKING_LOGISTICS: [
     'orders.read',
     'production.read',
     'delivery.read', 'delivery.write',
+    'tasks.read', 'tasks.write',
   ],
   DELIVERY_DRIVER: [
     'delivery.read', 'delivery.write',
+    'tasks.read',
   ],
 };
 
@@ -95,6 +109,8 @@ const LEGACY_POLICIES: LegacyPolicy[] = [
   { prefix: '/api/v1/reports', permission: 'analytics.read' },
   { prefix: '/api/v1/audit', permission: 'audit.read' },
   { prefix: '/api/v1/rules', permission: 'menus.write' },
+  { prefix: '/api/v1/partners', permission: 'partners.read' },
+  { prefix: '/api/v1/tasks', permission: 'tasks.read' },
   { prefix: '/api/v1/emergency', permission: 'production.read' },
   { prefix: '/api/v1/system', permission: 'admin.system' },
 ];

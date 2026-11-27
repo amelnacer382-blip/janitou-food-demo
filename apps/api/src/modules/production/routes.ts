@@ -228,5 +228,56 @@ export async function handleProductionRoutes(
     return true;
   }
 
+  // DOC-30: Operational Day Management (linking J-1 prep work to target operationalDate)
+  if (pathname === '/api/v1/production/operational-day' && method === 'GET') {
+    const date = searchParams.get('date') || new Date().toLocaleDateString('en-CA');
+    sendJson(res, 200, janitouStore.getOperationalDaySummary(date));
+    return true;
+  }
+
+  if (pathname === '/api/v1/production/operational-day/prep' && method === 'POST') {
+    const body = await readJsonBody<{
+      operationalDate?: string;
+      executedDate?: string;
+      taskName?: string;
+      recipeId?: string;
+      quantityNotes?: string;
+      performedBy?: string;
+    }>(req);
+    if (!body.operationalDate || !body.taskName || !body.taskName.trim()) {
+      sendError(res, 400, 'Validation Error', 'operationalDate et taskName requis.');
+      return true;
+    }
+    const prep = janitouStore.recordOperationalDayPrep(
+      {
+        operationalDate: body.operationalDate,
+        executedDate: body.executedDate,
+        taskName: body.taskName.trim(),
+        recipeId: body.recipeId,
+        quantityNotes: body.quantityNotes,
+        performedBy: body.performedBy || actor?.fullName || 'Atelier',
+      },
+      actorRef
+    );
+    sendJson(res, 201, { prep });
+    return true;
+  }
+
+  const prepMatch = pathname.match(/^\/api\/v1\/production\/operational-day\/prep\/([^/]+)$/);
+  if (prepMatch && method === 'PATCH') {
+    const body = await readJsonBody<{ status?: 'PLANNED' | 'DONE' }>(req);
+    if (body.status !== 'PLANNED' && body.status !== 'DONE') {
+      sendError(res, 400, 'Validation Error', 'status doit valoir PLANNED ou DONE.');
+      return true;
+    }
+    const prep = janitouStore.updateOperationalDayPrepStatus(prepMatch[1], body.status);
+    if (!prep) {
+      sendError(res, 404, 'Not Found', `Préparation '${prepMatch[1]}' introuvable.`);
+      return true;
+    }
+    sendJson(res, 200, { prep });
+    return true;
+  }
+
   return false;
 }

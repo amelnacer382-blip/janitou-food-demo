@@ -1,5 +1,5 @@
 /* JANITOU FOOD — simple mode app shell cache. API and uploads stay network-only. */
-const CACHE_NAME = 'janitou-simple-v2';
+const CACHE_NAME = 'janitou-simple-v3';
 const SHELL = [
   '/app/',
   '/app/manifest.webmanifest',

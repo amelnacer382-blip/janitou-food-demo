@@ -1,0 +1,15 @@
+{
+  "appId": "com.janitoufood.client",
+  "appName": "JANITOU FOOD",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#120b06"
+    }
+  }
+}

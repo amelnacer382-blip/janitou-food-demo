@@ -187,10 +187,52 @@ test('Phase 1 — collective packaging is derived from the production plan', () 
   );
 });
 
-test('Phase 1 — backups include the new operational collections', () => {
+test('Phase 1 — backups include the new operational collections', async () => {
   const store = new JanitouStore(undefined, { ephemeral: true });
+  store.updateAdvancedRules({ maxPastaPerWeek: 4 });
+  store.recordLedgerEntry({
+    type: 'INVOICE_ISSUED',
+    referenceId: 'INV-BACKUP-1',
+    customerId: 'cust-1',
+    customerName: 'Client Test',
+    debit: 1500,
+    credit: 0,
+  });
+  store.createPartnerProducer({
+    name: 'Partenaire Backup',
+    contactName: 'Ali',
+    phone: '0550 99 88 77',
+    specialties: ['Traiteur'],
+    isExceptional: false,
+  });
+
   const backup = store.createDatabaseBackup();
-  for (const key of ['vehicles', 'workshops', 'workOrders', 'recipeVersions', 'alternatives']) {
+  for (const key of [
+    'vehicles',
+    'workshops',
+    'workOrders',
+    'recipeVersions',
+    'alternatives',
+    'partners',
+    'partnerOrders',
+    'alternativeHolds',
+    'operationalPreps',
+    'periodicTasks',
+    'emergencyIncidents',
+    'trustedDevices',
+    'passwordResets',
+    'ledgerEntries',
+  ]) {
     assert.ok(Array.isArray(backup.data[key]), `${key} must be backed up`);
   }
+  assert.ok(backup.data.advancedRules && typeof backup.data.advancedRules === 'object');
+
+  store.updateAdvancedRules({ maxPastaPerWeek: 1 });
+  store.partners = [];
+  store.ledgerEntries = [];
+  assert.equal(await store.restoreDatabaseFromBackup(backup), true);
+  assert.equal(store.getAdvancedRules().maxPastaPerWeek, 4);
+  assert.equal(store.listPartnerProducers().length, 1);
+  assert.equal(store.getLedgerEntries().length, 1);
+  assert.equal(store.verifyLedgerIntegrity().isValid, true);
 });

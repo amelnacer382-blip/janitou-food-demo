@@ -493,6 +493,10 @@ test('HTTP Router End-to-End Suite', async (t) => {
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
     assert.equal(res.headers.get('x-frame-options'), 'SAMEORIGIN');
+    assert.ok(
+      res.headers.get('access-control-allow-headers')?.includes('X-Reauth-Password'),
+      'CORS headers must allow X-Reauth-Password for re-authenticated routes'
+    );
     assert.ok(res.headers.get('x-ratelimit-remaining'));
 
     // OpenAPI Spec

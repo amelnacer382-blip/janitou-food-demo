@@ -830,6 +830,10 @@
         <span style="font-weight:700; color:var(--color-primary-light);">Parcours Client (Phase 2)</span>
         <span style="font-size:0.62rem; padding:2px 6px; border-radius:4px; background:var(--color-primary); color:#fff; margin-left:auto;">Démo</span>
       </li>
+      <li class="nav-item" onclick="switchNavTab('operations')">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Opérations & Continuité</span>
+      </li>
 
       <li class="nav-section-label">Documentation & Outils</li>
       <li class="nav-item" style="border-top: 1px dashed rgba(217, 119, 6, 0.25); margin-top: 6px;">
@@ -1302,6 +1306,22 @@
             </table>
           </div>
         </div>
+
+        <div class="glass-card" style="margin-top:18px;">
+          <div class="card-header-bar">
+            <div>
+              <div class="card-heading">Appareils de Confiance (Décision 011)</div>
+              <div class="card-subheading">Postes autorisés hors comptes Administrateur (session unique stricte pour ADMIN)</div>
+            </div>
+            <button class="btn-action btn-action-secondary" onclick="loadTrustedDevicesTable()">Actualiser</button>
+          </div>
+          <div class="table-container">
+            <table class="modern-table">
+              <thead><tr><th>ID Appareil</th><th>Utilisateur</th><th>Nom</th><th>Expiration</th><th class="no-print">Action</th></tr></thead>
+              <tbody id="trustedDevicesTableBody"><tr><td colspan="5" style="text-align:center;">Chargement...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <!-- ============================================== -->
@@ -1500,6 +1520,94 @@
                 <tr><td colspan="8" style="text-align:center;">Chargement du Grand Livre...</td></tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- TAB 16: OPÉRATIONS & CONTINUITÉ (DOSSIER CLIENT) -->
+      <!-- ============================================== -->
+      <section id="tab-operations" class="tab-section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h2 style="font-size:1.25rem; font-weight:800;">Opérations Terrain, Partenaires & Continuité</h2>
+            <p style="color:var(--color-slate-500); font-size:0.85rem;">Partenaires (DOC-18 bis), Jour Opérationnel J-1 (DOC-30), Fiches sans smartphone (DOC-36) & Urgences humaines (Décision 012)</p>
+          </div>
+          <div style="display:flex; gap:10px;" class="no-print">
+            <button class="btn-action btn-action-secondary" onclick="openDashPrintableTasks()">Imprimer Fiche Tâches Équipe</button>
+            <button class="btn-action btn-action-primary" onclick="loadOperationsDashboard()">Actualiser tout</button>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(420px, 1fr)); gap:18px;">
+          <!-- Partenaires Producteurs -->
+          <div class="glass-card" style="padding:18px;">
+            <div class="card-header-bar" style="padding:0 0 12px; margin-bottom:12px;">
+              <div>
+                <div class="card-heading">Partenaires Producteurs & Qualité</div>
+                <div class="card-subheading">Score cumulatif & commandes exceptionnelles</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+              <input id="dashPartnerName" placeholder="Nom partenaire" style="flex:1; min-width:130px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem;" />
+              <input id="dashPartnerContact" placeholder="Contact" style="width:110px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem;" />
+              <input id="dashPartnerPhone" placeholder="Téléphone" style="width:120px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem;" />
+              <button class="btn-action btn-action-primary" onclick="createDashPartner()">+ Partenaire</button>
+            </div>
+            <div id="dashPartnersList" style="font-size:0.82rem; color:var(--color-slate-700);">Chargement...</div>
+          </div>
+
+          <!-- Jour Opérationnel J-1 -> J -->
+          <div class="glass-card" style="padding:18px;">
+            <div class="card-header-bar" style="padding:0 0 12px; margin-bottom:12px;">
+              <div>
+                <div class="card-heading">Jour Opérationnel (J-1 → J)</div>
+                <div class="card-subheading">Rattachement des préparations anticipées au jour cible</div>
+              </div>
+              <input type="date" id="dashOpsDate" onchange="loadDashOperationalDay()" style="padding:5px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.78rem;" />
+            </div>
+            <div style="display:flex; gap:8px; margin-bottom:12px;">
+              <input id="dashPrepTaskName" placeholder="Préparation J-1 (ex: Découpe légumes)" style="flex:1; padding:7px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem;" />
+              <button class="btn-action btn-action-primary" onclick="createDashPrep()">+ Préparation</button>
+            </div>
+            <div id="dashOperationalDayBox" style="font-size:0.82rem; color:var(--color-slate-700);">Chargement...</div>
+          </div>
+
+          <!-- Tâches Périodiques -->
+          <div class="glass-card" style="padding:18px;">
+            <div class="card-header-bar" style="padding:0 0 12px; margin-bottom:12px;">
+              <div>
+                <div class="card-heading">Tâches Périodiques & Fiches Papier</div>
+                <div class="card-subheading">Suivi hebdomadaire pour équipe atelier & livraison</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+              <input id="dashTaskTitle" placeholder="Titre tâche" style="flex:1; min-width:140px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem;" />
+              <input id="dashTaskDept" placeholder="Atelier" value="Cuisine" style="width:95px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem;" />
+              <button class="btn-action btn-action-primary" onclick="createDashTask()">+ Tâche</button>
+            </div>
+            <div id="dashTasksList" style="font-size:0.82rem; color:var(--color-slate-700);">Chargement...</div>
+          </div>
+
+          <!-- Urgence Humaine & Réconciliation -->
+          <div class="glass-card" style="padding:18px;">
+            <div class="card-header-bar" style="padding:0 0 12px; margin-bottom:12px;">
+              <div>
+                <div class="card-heading">Urgences Contrôlées & Conflits</div>
+                <div class="card-subheading">Validation humaine de gravité, escalade & réconciliation</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+              <input id="dashEmgTitle" placeholder="Titre incident" style="flex:1; min-width:150px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem;" />
+              <select id="dashEmgSeverity" style="padding:7px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem;">
+                <option value="LOW">LOW</option>
+                <option value="MEDIUM">MEDIUM</option>
+                <option value="HIGH" selected>HIGH</option>
+                <option value="CRITICAL">CRITICAL</option>
+              </select>
+              <button class="btn-action" style="background:#b91c1c; color:#fff;" onclick="activateDashEmergency()">Activer Urgence</button>
+            </div>
+            <div id="dashEmergencyList" style="font-size:0.82rem; color:var(--color-slate-700);">Chargement...</div>
           </div>
         </div>
       </section>
@@ -1852,6 +1960,10 @@
 
     function getTodayIso() { return new Date().toLocaleDateString('en-CA'); }
 
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    }
+
     function showToast(message, type = 'success') {
       const container = document.getElementById('toastContainer');
       const item = document.createElement('div');
@@ -1908,7 +2020,8 @@
         'phase2-rules': "Moteur de Règles Culinaires & Gestion des Pénuries (Phase 2)",
         'phase2-delivery': "Optimisation des Tournées & Dispatch Multi-Véhicules (Phase 2)",
         'phase2-reports': "Constructeur Dynamique de Rapports & Export CSV (Phase 2)",
-        'phase2-ledger': "Grand Livre Comptable Immuable & Audit SHA-256 (Phase 2)"
+        'phase2-ledger': "Grand Livre Comptable Immuable & Audit SHA-256 (Phase 2)",
+        operations: "Opérations Terrain, Partenaires & Continuité"
       };
       document.getElementById('pageTitleHeading').innerText = titles[tabId] || "JANITOU FOOD";
 
@@ -1922,11 +2035,12 @@
       if (tabId === 'inventory') { loadInventoryData(); loadPOs(); }
       if (tabId === 'logistics') loadLogisticsRuns();
       if (tabId === 'reports') loadReports();
-      if (tabId === 'audit') loadAuditLogs();
+      if (tabId === 'audit') { loadAuditLogs(); loadTrustedDevicesTable(); }
       if (tabId === 'phase2-rules') loadPhase2Rules();
       if (tabId === 'phase2-delivery') initPhase2DeliveryView();
       if (tabId === 'phase2-reports') initPhase2ReportsView();
       if (tabId === 'phase2-ledger') loadPhase2Ledger();
+      if (tabId === 'operations') loadOperationsDashboard();
     }
 
     function changeActiveRole(newRole) {
@@ -3562,6 +3676,271 @@
       } catch (err) {
         showToast('Erreur vérification : ' + err.message, 'error');
       }
+    }
+
+    async function loadTrustedDevicesTable() {
+      const tbody = document.getElementById('trustedDevicesTableBody');
+      if (!tbody) return;
+      try {
+        const res = await fetch(API + '/simple/devices').then(r => r.json());
+        const devices = res.devices || [];
+        tbody.innerHTML = devices.length
+          ? devices.map(d => `
+              <tr>
+                <td><code>${escapeHtml(d.id)}</code></td>
+                <td>${escapeHtml(d.userId)}</td>
+                <td><strong>${escapeHtml(d.deviceName)}</strong></td>
+                <td>${new Date(d.expiresAt).toLocaleString('fr-DZ')}</td>
+                <td class="no-print"><button class="btn-action btn-action-secondary" style="padding:4px 10px;font-size:0.74rem;color:#b91c1c;" onclick="revokeDashTrustedDevice('${escapeHtml(d.id)}')">Révoquer</button></td>
+              </tr>`).join('')
+          : '<tr><td colspan="5" style="text-align:center;color:var(--color-slate-400);">Aucun appareil de confiance enregistré.</td></tr>';
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#ef4444;">${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
+    async function revokeDashTrustedDevice(id) {
+      try {
+        const r = await fetch(`${API}/simple/devices/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (!r.ok) throw new Error('Suppression refusée');
+        showToast('Appareil révoqué');
+        loadTrustedDevicesTable();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function loadOperationsDashboard() {
+      const dateEl = document.getElementById('dashOpsDate');
+      if (dateEl && !dateEl.value) dateEl.value = getTodayIso();
+      await Promise.all([
+        loadDashPartners(),
+        loadDashOperationalDay(),
+        loadDashTasks(),
+        loadDashEmergency(),
+      ]);
+    }
+
+    async function loadDashPartners() {
+      const box = document.getElementById('dashPartnersList');
+      if (!box) return;
+      try {
+        const [pRes, oRes] = await Promise.all([
+          fetch(API + '/partners').then(r => r.json()),
+          fetch(API + '/partners/orders').then(r => r.json()),
+        ]);
+        const partners = pRes.partners || [];
+        const orders = oRes.orders || [];
+        box.innerHTML = `
+          ${partners.map(p => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;">
+            <span><strong>${escapeHtml(p.name)}</strong> (${escapeHtml(p.contactName)} · ${escapeHtml(p.phone)})</span>
+            <span class="chip chip-confirmed">Score ${p.metrics?.score ?? 100}/100</span>
+          </div>`).join('') || '<p style="color:var(--color-slate-400);">Aucun partenaire.</p>'}
+          <div style="margin-top:10px;font-weight:700;">Commandes partenaires (${orders.length})</div>
+          ${orders.slice(0, 6).map(o => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed #e2e8f0;">
+            <span>${escapeHtml(o.productName)} ×${o.quantity} (${escapeHtml(o.date)})</span>
+            <span>
+              <span class="chip ${o.status === 'RECEIVED' ? 'chip-success' : 'chip-confirmed'}">${escapeHtml(o.status)}</span>
+              ${o.status === 'ORDERED' ? `<button class="btn-action btn-action-secondary" style="padding:3px 8px;font-size:0.72rem;margin-left:6px;" onclick="receiveDashPartnerOrder('${escapeHtml(o.id)}')">Réceptionner</button>` : ''}
+            </span>
+          </div>`).join('')}`;
+      } catch (err) { box.innerHTML = `<span style="color:#ef4444;">${escapeHtml(err.message)}</span>`; }
+    }
+
+    async function createDashPartner() {
+      const name = document.getElementById('dashPartnerName')?.value.trim();
+      const contactName = document.getElementById('dashPartnerContact')?.value.trim();
+      const phone = document.getElementById('dashPartnerPhone')?.value.trim();
+      if (!name || !contactName || !phone) { showToast('Nom, contact et téléphone requis', 'error'); return; }
+      try {
+        const res = await fetch(API + '/partners', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, contactName, phone }),
+        });
+        if (!res.ok) throw new Error('Création refusée');
+        document.getElementById('dashPartnerName').value = '';
+        document.getElementById('dashPartnerContact').value = '';
+        document.getElementById('dashPartnerPhone').value = '';
+        showToast('Partenaire enregistré');
+        loadDashPartners();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function receiveDashPartnerOrder(id) {
+      try {
+        const res = await fetch(`${API}/partners/orders/${encodeURIComponent(id)}/receive`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'RECEIVED', qualityFlags: ['MATCH'] }),
+        });
+        if (!res.ok) throw new Error('Erreur réception');
+        showToast('Commande réceptionnée (contrôle qualité OK)');
+        loadDashPartners();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function loadDashOperationalDay() {
+      const box = document.getElementById('dashOperationalDayBox');
+      if (!box) return;
+      const date = document.getElementById('dashOpsDate')?.value || getTodayIso();
+      try {
+        const data = await fetch(`${API}/production/operational-day?date=${encodeURIComponent(date)}`).then(r => r.json());
+        const preps = data.prepTasks || data.preps || [];
+        box.innerHTML = `
+          <div style="margin-bottom:8px;"><strong>${data.ordersCount || 0}</strong> commande(s) · <strong>${data.totalPortions || 0}</strong> portion(s) pour ${escapeHtml(date)}</div>
+          ${preps.map(p => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9;">
+            <span><strong>${escapeHtml(p.taskName)}</strong> <small>(fait le ${escapeHtml(p.executedDate)})</small></span>
+            <span>
+              <span class="chip ${p.status === 'DONE' ? 'chip-success' : 'chip-confirmed'}">${escapeHtml(p.status)}</span>
+              ${p.status !== 'DONE' ? `<button class="btn-action btn-action-secondary" style="padding:3px 8px;font-size:0.72rem;margin-left:6px;" onclick="markDashPrepDone('${escapeHtml(p.id)}')">DONE</button>` : ''}
+            </span>
+          </div>`).join('') || '<p style="color:var(--color-slate-400);">Aucune préparation J-1 pour cette date.</p>'}`;
+      } catch (err) { box.innerHTML = `<span style="color:#ef4444;">${escapeHtml(err.message)}</span>`; }
+    }
+
+    async function createDashPrep() {
+      const operationalDate = document.getElementById('dashOpsDate')?.value || getTodayIso();
+      const taskName = document.getElementById('dashPrepTaskName')?.value.trim();
+      if (!taskName) { showToast('Nom de préparation requis', 'error'); return; }
+      try {
+        const res = await fetch(API + '/production/operational-day/prep', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operationalDate, taskName }),
+        });
+        if (!res.ok) throw new Error('Enregistrement refusé');
+        document.getElementById('dashPrepTaskName').value = '';
+        showToast('Préparation J-1 rattachée au ' + operationalDate);
+        loadDashOperationalDay();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function markDashPrepDone(id) {
+      try {
+        const res = await fetch(`${API}/production/operational-day/prep/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'DONE' }),
+        });
+        if (!res.ok) throw new Error('Mise à jour refusée');
+        showToast('Préparation validée');
+        loadDashOperationalDay();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function loadDashTasks() {
+      const box = document.getElementById('dashTasksList');
+      if (!box) return;
+      try {
+        const res = await fetch(API + '/tasks/periodic').then(r => r.json());
+        const tasks = res.tasks || [];
+        box.innerHTML = tasks.map(t => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9;">
+            <span><strong>${escapeHtml(t.title)}</strong> <small>(${escapeHtml(t.department)} · ${escapeHtml(t.assigneeName)})</small></span>
+            <span>
+              <span class="chip ${t.status === 'COMPLETED' ? 'chip-success' : 'chip-confirmed'}">${escapeHtml(t.status)}</span>
+              ${t.status !== 'COMPLETED' ? `<button class="btn-action btn-action-secondary" style="padding:3px 8px;font-size:0.72rem;margin-left:6px;" onclick="markDashTaskDone('${escapeHtml(t.id)}')">Valider</button>` : ''}
+            </span>
+          </div>`).join('') || '<p style="color:var(--color-slate-400);">Aucune tâche périodique.</p>';
+      } catch (err) { box.innerHTML = `<span style="color:#ef4444;">${escapeHtml(err.message)}</span>`; }
+    }
+
+    async function createDashTask() {
+      const title = document.getElementById('dashTaskTitle')?.value.trim();
+      const department = document.getElementById('dashTaskDept')?.value.trim() || 'Cuisine';
+      if (!title) { showToast('Titre requis', 'error'); return; }
+      try {
+        const res = await fetch(API + '/tasks/periodic', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, department, weekday: new Date().getDay(), estimatedMinutes: 30 }),
+        });
+        if (!res.ok) throw new Error('Création refusée');
+        document.getElementById('dashTaskTitle').value = '';
+        showToast('Tâche ajoutée');
+        loadDashTasks();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function markDashTaskDone(id) {
+      try {
+        const res = await fetch(`${API}/tasks/periodic/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'COMPLETED' }),
+        });
+        if (!res.ok) throw new Error('Erreur mise à jour');
+        showToast('Tâche terminée');
+        loadDashTasks();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function openDashPrintableTasks() {
+      try {
+        const date = document.getElementById('dashOpsDate')?.value || getTodayIso();
+        const res = await fetch(`${API}/tasks/printable?date=${encodeURIComponent(date)}&format=html`);
+        if (!res.ok) throw new Error('Impossible de générer la fiche');
+        const html = await res.text();
+        const win = window.open('', '_blank', 'width=900,height=700');
+        if (!win) { showToast('Autorisez les pop-ups pour imprimer', 'error'); return; }
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function loadDashEmergency() {
+      const box = document.getElementById('dashEmergencyList');
+      if (!box) return;
+      try {
+        const res = await fetch(API + '/emergency/incidents').then(r => r.json());
+        const list = res.incidents || [];
+        box.innerHTML = list.map(inc => {
+          const openConflicts = (inc.conflicts || []).filter(c => !c.resolvedAt);
+          return `<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <strong>${escapeHtml(inc.title)}</strong>
+              <span class="chip ${inc.status === 'CLOSED' ? 'chip-success' : 'chip-danger'}">${escapeHtml(inc.severity)} · ${escapeHtml(inc.status)}</span>
+            </div>
+            <div style="font-size:0.74rem;color:var(--color-slate-500);">${escapeHtml(inc.escalationChain.primary)} → ${escapeHtml(inc.escalationChain.backup1)} → ${escapeHtml(inc.escalationChain.backup2)} · Conflits ouverts: ${openConflicts.length}</div>
+            ${inc.status !== 'CLOSED' ? `<button class="btn-action btn-action-secondary" style="margin-top:6px;padding:3px 10px;font-size:0.72rem;" onclick="closeDashEmergency('${escapeHtml(inc.id)}')">Clôturer / Réconcilier</button>` : ''}
+          </div>`;
+        }).join('') || '<p style="color:var(--color-slate-400);">Aucun incident d’urgence.</p>';
+      } catch (err) { box.innerHTML = `<span style="color:#ef4444;">${escapeHtml(err.message)}</span>`; }
+    }
+
+    async function activateDashEmergency() {
+      const title = document.getElementById('dashEmgTitle')?.value.trim();
+      const severity = document.getElementById('dashEmgSeverity')?.value || 'HIGH';
+      if (!title) { showToast('Titre de l’incident requis', 'error'); return; }
+      try {
+        const res = await fetch(API + '/emergency/activate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            severity,
+            escalationChain: { primary: 'Chef Atelier', backup1: 'Resp. Opérations', backup2: 'Directeur Général' },
+          }),
+        });
+        if (!res.ok) throw new Error('Activation refusée');
+        document.getElementById('dashEmgTitle').value = '';
+        showToast('Urgence activée sous contrôle humain');
+        loadDashEmergency();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function closeDashEmergency(id) {
+      try {
+        const res = await fetch(`${API}/emergency/incidents/${encodeURIComponent(id)}/resolve`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ close: true }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Conflits non résolus');
+        showToast('Incident réconcilié et clôturé');
+        loadDashEmergency();
+      } catch (err) { showToast(err.message, 'error'); }
     }
 
     window.onload = initPlatform;

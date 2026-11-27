@@ -105,6 +105,7 @@ export async function handleSimpleRoutes(
   const adminOnly =
     pathname.startsWith('/api/v1/simple/users') ||
     pathname.startsWith('/api/v1/simple/sessions') ||
+    pathname.startsWith('/api/v1/simple/devices') ||
     pathname === '/api/v1/simple/audit' ||
     pathname === '/api/v1/simple/messages';
   if (adminOnly && staff.role !== 'ADMIN') {
@@ -427,6 +428,9 @@ export async function handleSimpleRoutes(
         closedDates: current.closedDates,
         deadlineOverrides: current.deadlineOverrides,
         collectivePackagingSize: current.collectivePackagingSize,
+        offlineSessionTtlMinutes: current.offlineSessionTtlMinutes,
+        offlineMaxRetries: current.offlineMaxRetries,
+        allowClientSelfRegistration: current.allowClientSelfRegistration,
       };
 
       for (const key of ['lunchPrice', 'dinnerPrice', 'packagingPrice', 'deliveryPrice'] as const) {
@@ -477,6 +481,37 @@ export async function handleSimpleRoutes(
           return true;
         }
         next.collectivePackagingSize = body.collectivePackagingSize;
+      }
+      if (body.offlineSessionTtlMinutes !== undefined) {
+        if (
+          typeof body.offlineSessionTtlMinutes !== 'number' ||
+          !Number.isInteger(body.offlineSessionTtlMinutes) ||
+          body.offlineSessionTtlMinutes < 1 ||
+          body.offlineSessionTtlMinutes > 10080
+        ) {
+          sendError(res, 400, 'Validation Error', 'offlineSessionTtlMinutes invalide (1..10080).');
+          return true;
+        }
+        next.offlineSessionTtlMinutes = body.offlineSessionTtlMinutes;
+      }
+      if (body.offlineMaxRetries !== undefined) {
+        if (
+          typeof body.offlineMaxRetries !== 'number' ||
+          !Number.isInteger(body.offlineMaxRetries) ||
+          body.offlineMaxRetries < 1 ||
+          body.offlineMaxRetries > 50
+        ) {
+          sendError(res, 400, 'Validation Error', 'offlineMaxRetries invalide (1..50).');
+          return true;
+        }
+        next.offlineMaxRetries = body.offlineMaxRetries;
+      }
+      if (body.allowClientSelfRegistration !== undefined) {
+        if (typeof body.allowClientSelfRegistration !== 'boolean') {
+          sendError(res, 400, 'Validation Error', 'allowClientSelfRegistration doit être un booléen.');
+          return true;
+        }
+        next.allowClientSelfRegistration = body.allowClientSelfRegistration;
       }
       if (body.closedDates !== undefined) {
         if (!Array.isArray(body.closedDates) || body.closedDates.length > 60) {
@@ -725,6 +760,7 @@ export async function handleSimpleRoutes(
         accountStatus: customer.accountStatus || 'ACTIVE',
         balance: customer.accountBalance,
         distribution: customer.distribution,
+        extraOverrides: customer.extraOverrides,
         reviewRequired: janitouStore.isClientReviewRequired(customer),
         lastOrderDate,
         ordersCount: orders.length,
@@ -920,6 +956,7 @@ export async function handleSimpleRoutes(
     id: string;
     email: string;
     fullName: string;
+    phone?: string;
     role: string;
     isActive: boolean;
     createdAt: string;
@@ -927,6 +964,7 @@ export async function handleSimpleRoutes(
     id: user.id,
     email: user.email,
     fullName: user.fullName,
+    phone: user.phone,
     role: user.role,
     isActive: user.isActive,
     createdAt: user.createdAt,
@@ -938,7 +976,7 @@ export async function handleSimpleRoutes(
       return true;
     }
     if (method === 'POST') {
-      let body: { email?: string; fullName?: string; role?: string; password?: string };
+      let body: { email?: string; fullName?: string; phone?: string; role?: string; password?: string };
       try {
         body = await readJsonBody(req);
       } catch {
@@ -947,6 +985,7 @@ export async function handleSimpleRoutes(
       }
       const email = sanitizeString(body.email || '').toLowerCase();
       const fullName = sanitizeString(body.fullName || '');
+      const phone = body.phone ? sanitizeString(body.phone).slice(0, 30) : undefined;
       const role = staffRoleValues.find((value) => value === body.role);
       const password = String(body.password || '');
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
@@ -966,7 +1005,7 @@ export async function handleSimpleRoutes(
         return true;
       }
       try {
-        const user = janitouStore.createStaffUser({ email, fullName, role, password }, staff);
+        const user = janitouStore.createStaffUser({ email, fullName, phone, role, password }, staff);
         sendJson(res, 201, { user: staffUserView(user) });
       } catch (error) {
         if (error instanceof Error && error.message === 'EMAIL_EXISTS') {
@@ -983,6 +1022,7 @@ export async function handleSimpleRoutes(
   if (staffUserMatch && method === 'PATCH') {
     let body: {
       fullName?: string;
+      phone?: string;
       role?: string;
       isActive?: boolean;
       password?: string;
@@ -1012,6 +1052,9 @@ export async function handleSimpleRoutes(
         return true;
       }
       patch.fullName = fullName;
+    }
+    if (body.phone !== undefined) {
+      patch.phone = sanitizeString(body.phone).slice(0, 30);
     }
     if (body.role !== undefined) {
       const role = staffRoleValues.find((value) => value === body.role);
@@ -1089,6 +1132,38 @@ export async function handleSimpleRoutes(
       action: 'REVOKE_SESSION',
       entityType: sessionMatch[1] === 'staff' ? 'STAFF_SESSION' : 'CLIENT_SESSION',
       entityId: sessionMatch[2].slice(0, 12),
+    });
+    sendJson(res, 200, { success: true });
+    return true;
+  }
+
+  if (pathname === '/api/v1/simple/devices' && method === 'GET') {
+    const userId = searchParams.get('userId') || undefined;
+    sendJson(res, 200, {
+      devices: janitouStore.listTrustedDevices(userId).map((d) => ({
+        id: d.id,
+        userId: d.userId,
+        deviceName: d.deviceName,
+        lastSeenAt: d.lastSeenAt,
+        expiresAt: d.expiresAt,
+      })),
+    });
+    return true;
+  }
+
+  const deviceMatch = pathname.match(/^\/api\/v1\/simple\/devices\/([^/]+)$/);
+  if (deviceMatch && method === 'DELETE') {
+    const revoked = janitouStore.revokeTrustedDevice(deviceMatch[1]);
+    if (!revoked) {
+      sendError(res, 404, 'Not Found', 'Appareil introuvable.');
+      return true;
+    }
+    janitouStore.logAuditEvent({
+      userId: staff.id,
+      userName: staff.fullName,
+      action: 'REVOKE_TRUSTED_DEVICE',
+      entityType: 'TRUSTED_DEVICE',
+      entityId: deviceMatch[1],
     });
     sendJson(res, 200, { success: true });
     return true;

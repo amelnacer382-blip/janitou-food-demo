@@ -56,7 +56,14 @@ export async function handleAuthRoutes(
   if (!pathname.startsWith('/api/v1/auth')) return false;
 
   if (pathname === '/api/v1/auth/login' && method === 'POST') {
-    let body: { email?: string; password?: string; mfaCode?: string; challenge?: string };
+    let body: {
+      email?: string;
+      password?: string;
+      mfaCode?: string;
+      challenge?: string;
+      trustDevice?: boolean | string;
+      deviceToken?: string;
+    };
     try {
       body = await readJsonBody(req);
     } catch {
@@ -91,7 +98,12 @@ export async function handleAuthRoutes(
       );
       return true;
     }
-    if (user.mfaEnabled) {
+    const trustedMatch =
+      user.role !== 'ADMIN' &&
+      typeof body.deviceToken === 'string' &&
+      body.deviceToken.length > 0 &&
+      janitouStore.verifyTrustedDevice(user.id, body.deviceToken);
+    if (user.mfaEnabled && !trustedMatch) {
       const challenge = sanitizeString(body.challenge || '');
       const code = String(body.mfaCode || '').trim();
       const now = Date.now();
@@ -118,7 +130,62 @@ export async function handleAuthRoutes(
       mfaChallenges.delete(challenge);
     }
     attempts.delete(email.toLowerCase());
-    sendJson(res, 200, { token: await createStaffSession(user.id), user: userView(user) });
+    let deviceToken: string | undefined;
+    if (body.trustDevice) {
+      const deviceName =
+        typeof body.trustDevice === 'string' && body.trustDevice.trim()
+          ? sanitizeString(body.trustDevice)
+          : sanitizeString(String(req.headers['user-agent'] || 'Navigateur'));
+      deviceToken = janitouStore.registerTrustedDevice(user.id, deviceName).deviceToken;
+    }
+    sendJson(res, 200, {
+      token: await createStaffSession(user.id),
+      user: userView(user),
+      ...(deviceToken ? { deviceToken } : {}),
+    });
+    return true;
+  }
+
+  if (pathname === '/api/v1/auth/password-reset/request' && method === 'POST') {
+    let body: { email?: string; channel?: string };
+    try {
+      body = await readJsonBody(req);
+    } catch {
+      sendError(res, 400, 'Validation Error', 'Corps JSON invalide.');
+      return true;
+    }
+    const email = sanitizeString(body.email || '');
+    if (!email) {
+      sendError(res, 400, 'Validation Error', 'Email requis.');
+      return true;
+    }
+    const channel = body.channel === 'EMAIL' ? 'EMAIL' : 'WHATSAPP';
+    const result = janitouStore.requestStaffPasswordReset(email, channel);
+    sendJson(res, 200, result);
+    return true;
+  }
+
+  if (pathname === '/api/v1/auth/password-reset/confirm' && method === 'POST') {
+    let body: { email?: string; code?: string; newPassword?: string };
+    try {
+      body = await readJsonBody(req);
+    } catch {
+      sendError(res, 400, 'Validation Error', 'Corps JSON invalide.');
+      return true;
+    }
+    const email = sanitizeString(body.email || '');
+    const code = String(body.code || '').trim();
+    const newPassword = String(body.newPassword || '');
+    if (!email || !/^\d{6}$/.test(code) || newPassword.length < 8) {
+      sendError(res, 400, 'Validation Error', 'Email, code à 6 chiffres et mot de passe (>= 8) requis.');
+      return true;
+    }
+    const ok = janitouStore.confirmStaffPasswordReset(email, code, newPassword);
+    if (!ok) {
+      sendError(res, 401, 'Unauthorized', 'Code invalide ou expiré.');
+      return true;
+    }
+    sendJson(res, 200, { success: true });
     return true;
   }
 

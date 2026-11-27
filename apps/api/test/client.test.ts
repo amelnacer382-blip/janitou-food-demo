@@ -61,6 +61,13 @@ test('Client app API — public catalogue, guest checkout and ordering', async (
     const html = await res.text();
     assert.ok(html.includes('جانيتو فود'));
     assert.ok(html.includes('/client/manifest.webmanifest'));
+    assert.ok(html.includes('navAccountLabel'));
+    assert.ok(html.includes('loadOrders'));
+
+    const swRes = await fetch(`${base}/client/sw.js`);
+    assert.equal(swRes.status, 200);
+    const swText = await swRes.text();
+    assert.ok(swText.includes('response.ok'));
   });
 
   await step('menu is published with prices and alternatives', async () => {

@@ -16,6 +16,8 @@ import { handleSystemRoutes } from './modules/system/routes.js';
 import { handleSimpleRoutes } from './modules/simple/routes.js';
 import { handleClientRoutes } from './modules/client/routes.js';
 import { handleAuthRoutes } from './modules/auth/routes.js';
+import { handlePartnerRoutes } from './modules/partners/routes.js';
+import { handleTaskRoutes } from './modules/tasks/routes.js';
 import { authenticatedStaff } from './modules/auth/session.js';
 
 const PUBLIC_API_PREFIXES = [
@@ -273,6 +275,8 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
     if (await handlePurchasingRoutes(req, res, pathname, method)) return;
     if (await handleDeliveryRoutes(req, res, pathname, method, searchParams)) return;
     if (await handleAnalyticsRoutes(req, res, pathname, method, searchParams)) return;
+    if (await handlePartnerRoutes(req, res, pathname, method, searchParams)) return;
+    if (await handleTaskRoutes(req, res, pathname, method, searchParams)) return;
 
     // ----------------------------------------------------
     // Default 404 Not Found

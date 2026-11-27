@@ -28,6 +28,13 @@ interface RateLimitBucket {
   resetAt: number;
 }
 const rateLimitMap = new Map<string, RateLimitBucket>();
+const RATE_LIMIT_PRUNE_THRESHOLD = 500;
+
+function pruneExpiredRateLimits(now: number): void {
+  for (const [key, bucket] of rateLimitMap) {
+    if (now > bucket.resetAt) rateLimitMap.delete(key);
+  }
+}
 
 export function checkRateLimit(
   req: IncomingMessage,
@@ -40,6 +47,9 @@ export function checkRateLimit(
     '127.0.0.1';
 
   const now = Date.now();
+  if (rateLimitMap.size >= RATE_LIMIT_PRUNE_THRESHOLD) {
+    pruneExpiredRateLimits(now);
+  }
   let bucket = rateLimitMap.get(ip);
 
   if (!bucket || now > bucket.resetAt) {
@@ -64,7 +74,10 @@ export function sanitizeString(val: string): string {
 export function setSecurityHeaders(res: ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-Role');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, X-User-Role, X-Reauth-Password'
+  );
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-XSS-Protection', '1; mode=block');
@@ -73,24 +86,39 @@ export function setSecurityHeaders(res: ServerResponse): void {
 
 export function readJsonBody<T>(req: IncomingMessage, maxBytes = 2 * 1024 * 1024): Promise<T> {
   const { promise, resolve, reject } = Promise.withResolvers<T>();
-  let body = '';
+  const chunks: Buffer[] = [];
+  let size = 0;
+  let settled = false;
 
   req.on('data', (chunk: Buffer | string) => {
-    body += chunk;
-    if (body.length > maxBytes) {
+    if (settled) return;
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buffer.length;
+    if (size > maxBytes) {
+      settled = true;
+      req.destroy();
       reject(new Error('Payload too large'));
+      return;
     }
+    chunks.push(buffer);
   });
 
   req.on('end', () => {
+    if (settled) return;
+    settled = true;
     try {
+      const body = Buffer.concat(chunks).toString('utf-8');
       resolve(body.length > 0 ? (JSON.parse(body) as T) : ({} as T));
     } catch {
       reject(new Error('Invalid JSON payload'));
     }
   });
 
-  req.on('error', (err) => reject(err));
+  req.on('error', (err) => {
+    if (settled) return;
+    settled = true;
+    reject(err);
+  });
   return promise;
 }
 

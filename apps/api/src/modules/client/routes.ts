@@ -150,12 +150,57 @@ export async function handleClientRoutes(
   if (!pathname.startsWith('/api/v1/client')) return false;
 
   if (pathname === '/api/v1/client/register') {
-    sendError(
-      res,
-      403,
-      'Registration Disabled',
-      'الحساب يُنشأ من طرف مطعم جانيتو فود. تواصل مع الإدارة للحصول على رمز الدخول.'
-    );
+    const settings = janitouStore.getSimpleSettings();
+    if (!settings.allowClientSelfRegistration || method !== 'POST') {
+      sendError(
+        res,
+        403,
+        'Registration Disabled',
+        'الحساب يُنشأ من طرف مطعم جانيتو فود. تواصل مع الإدارة للحصول على رمز الدخول.'
+      );
+      return true;
+    }
+    let body: {
+      contactName?: string;
+      companyName?: string;
+      phone?: string;
+      pin?: string;
+      deliveryAddress?: string;
+    };
+    try {
+      body = await readJsonBody(req);
+    } catch {
+      sendError(res, 400, 'Validation Error', 'Corps JSON invalide.');
+      return true;
+    }
+    const contactName = sanitizeString(body.contactName || '');
+    const phone = sanitizeString(body.phone || '');
+    const pin = String(body.pin || '').trim();
+    const deliveryAddress = sanitizeString(body.deliveryAddress || '');
+    if (
+      contactName.length < 2 ||
+      normalizePhone(phone).length < 9 ||
+      !/^\d{4}$/.test(pin) ||
+      deliveryAddress.length < 5
+    ) {
+      sendError(res, 400, 'Validation Error', 'البيانات غير مكتملة أو غير صالحة.');
+      return true;
+    }
+    if (janitouStore.getCustomerByPhone(phone)) {
+      sendError(res, 409, 'Conflict', 'رقم الهاتف مسجل مسبقاً.');
+      return true;
+    }
+    const { salt, hash } = hashPin(pin);
+    const customer = janitouStore.createClientAccount({
+      contactName,
+      companyName: body.companyName ? sanitizeString(body.companyName) : undefined,
+      phone,
+      deliveryAddress,
+      pinSalt: salt,
+      pinHash: hash,
+      active: false,
+    });
+    sendJson(res, 201, { account: accountView(customer) });
     return true;
   }
 
@@ -220,6 +265,9 @@ export async function handleClientRoutes(
         extras: settings.extras,
         cutoffTime: settings.cutoffTime,
         cutoffDaysBefore: settings.cutoffDaysBefore,
+        offlineSessionTtlMinutes: settings.offlineSessionTtlMinutes ?? 120,
+        offlineMaxRetries: settings.offlineMaxRetries ?? 5,
+        allowClientSelfRegistration: Boolean(settings.allowClientSelfRegistration),
       },
     });
     return true;
@@ -527,6 +575,50 @@ export async function handleClientRoutes(
     }
     janitouStore.markClientNotificationsRead(customer.id);
     sendJson(res, 200, { success: true });
+    return true;
+  }
+
+  const holdMatch = pathname.match(/^\/api\/v1\/client\/alternatives\/([^/]+)\/hold$/);
+  if (holdMatch && method === 'POST') {
+    const customer = authenticatedCustomer(req);
+    if (!customer) {
+      sendError(res, 401, 'Unauthorized', 'الجلسة غير صالحة.');
+      return true;
+    }
+    let body: { portions?: number; ttlMinutes?: number };
+    try {
+      body = await readJsonBody(req);
+    } catch {
+      sendError(res, 400, 'Validation Error', 'Corps JSON invalide.');
+      return true;
+    }
+    try {
+      const hold = janitouStore.createAlternativeHold(
+        holdMatch[1],
+        customer.id,
+        Number(body.portions || 1),
+        typeof body.ttlMinutes === 'number' ? body.ttlMinutes : 15
+      );
+      sendJson(res, 201, { hold });
+    } catch (error) {
+      sendOrderError(res, error);
+    }
+    return true;
+  }
+
+  const releaseHoldMatch = pathname.match(/^\/api\/v1\/client\/alternatives\/holds\/([^/]+)$/);
+  if (releaseHoldMatch && method === 'DELETE') {
+    const customer = authenticatedCustomer(req);
+    if (!customer) {
+      sendError(res, 401, 'Unauthorized', 'الجلسة غير صالحة.');
+      return true;
+    }
+    const released = janitouStore.cancelAlternativeHold(releaseHoldMatch[1]);
+    if (!released || released.customerId !== customer.id) {
+      sendError(res, 404, 'Not Found', 'الحجز غير موجود.');
+      return true;
+    }
+    sendJson(res, 200, { hold: released });
     return true;
   }
 

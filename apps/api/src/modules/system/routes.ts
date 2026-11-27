@@ -81,6 +81,112 @@ export async function handleSystemRoutes(
     return true;
   }
 
+  // Decision 012 & DOC-31: Human-controlled emergency activation & post-recovery reconciliation
+  if (pathname === '/api/v1/emergency/incidents' && method === 'GET') {
+    sendJson(res, 200, { incidents: janitouStore.listEmergencyIncidents() });
+    return true;
+  }
+
+  if (pathname === '/api/v1/emergency/activate' && method === 'POST') {
+    const staff = authenticatedStaff(req);
+    if (!staff) {
+      sendError(res, 401, 'Unauthorized', 'Session staff requise.');
+      return true;
+    }
+    const body = await readJsonBody<{
+      severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+      suggestedSeverity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+      title?: string;
+      description?: string;
+      escalationChain?: { primary?: string; backup1?: string; backup2?: string };
+    }>(req);
+    const valid = new Set(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
+    if (
+      !body.severity ||
+      !valid.has(body.severity) ||
+      !body.title ||
+      !body.escalationChain?.primary ||
+      !body.escalationChain?.backup1 ||
+      !body.escalationChain?.backup2
+    ) {
+      sendError(
+        res,
+        400,
+        'Validation Error',
+        'severity, title et escalationChain (primary, backup1, backup2) requis.'
+      );
+      return true;
+    }
+    const incident = janitouStore.activateEmergencyIncident(
+      {
+        severity: body.severity,
+        suggestedSeverity: body.suggestedSeverity,
+        title: body.title.trim(),
+        description: (body.description || '').trim(),
+        escalationChain: {
+          primary: body.escalationChain.primary,
+          backup1: body.escalationChain.backup1,
+          backup2: body.escalationChain.backup2,
+        },
+      },
+      { id: staff.id, name: staff.fullName }
+    );
+    sendJson(res, 201, { incident });
+    return true;
+  }
+
+  const emgConflictMatch = pathname.match(/^\/api\/v1\/emergency\/incidents\/([^/]+)\/conflicts$/);
+  if (emgConflictMatch && method === 'POST') {
+    const staff = authenticatedStaff(req);
+    if (!staff) {
+      sendError(res, 401, 'Unauthorized', 'Session staff requise.');
+      return true;
+    }
+    const body = await readJsonBody<{ description?: string }>(req);
+    if (!body.description || !body.description.trim()) {
+      sendError(res, 400, 'Validation Error', 'description requise.');
+      return true;
+    }
+    const incident = janitouStore.addEmergencyConflict(emgConflictMatch[1], body.description.trim(), {
+      id: staff.id,
+      name: staff.fullName,
+    });
+    if (!incident) {
+      sendError(res, 404, 'Not Found', 'Incident introuvable.');
+      return true;
+    }
+    sendJson(res, 200, { incident });
+    return true;
+  }
+
+  const emgResolveMatch = pathname.match(/^\/api\/v1\/emergency\/incidents\/([^/]+)\/resolve$/);
+  if (emgResolveMatch && method === 'PATCH') {
+    const staff = authenticatedStaff(req);
+    if (!staff) {
+      sendError(res, 401, 'Unauthorized', 'Session staff requise.');
+      return true;
+    }
+    const body = await readJsonBody<{
+      resolutions?: { conflictId: string; resolution: string }[];
+      reconciliationNotes?: string;
+      close?: boolean;
+    }>(req);
+    try {
+      const incident = janitouStore.resolveEmergencyIncident(emgResolveMatch[1], body, {
+        id: staff.id,
+        name: staff.fullName,
+      });
+      if (!incident) {
+        sendError(res, 404, 'Not Found', 'Incident introuvable.');
+        return true;
+      }
+      sendJson(res, 200, { incident });
+    } catch (error) {
+      sendError(res, 409, 'Conflict', error instanceof Error ? error.message : 'Conflits non résolus.');
+    }
+    return true;
+  }
+
   // System Backup — ADMIN + password re-authentication, fully audited.
   if (pathname === '/api/v1/system/backup' && method === 'GET') {
     const staff = authenticatedStaff(req);

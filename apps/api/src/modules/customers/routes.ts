@@ -80,6 +80,27 @@ export async function handleCustomerRoutes(
     return true;
   }
 
+  const extraOverridesMatch = pathname.match(/^\/api\/v1\/customers\/([^/]+)\/extra-overrides$/);
+  if (extraOverridesMatch && method === 'PATCH') {
+    const body = await readJsonBody<{ overrides?: Record<string, number> }>(req);
+    if (!body.overrides || typeof body.overrides !== 'object' || Array.isArray(body.overrides)) {
+      sendError(res, 400, 'Validation Error', 'overrides doit être un objet { extraName: maxQty }.');
+      return true;
+    }
+    const actor = authenticatedStaff(req);
+    const customer = janitouStore.setCustomerExtraOverrides(
+      extraOverridesMatch[1],
+      body.overrides,
+      actor ? { id: actor.id, name: actor.fullName } : undefined
+    );
+    if (!customer) {
+      sendError(res, 404, 'Not Found', `Client '${extraOverridesMatch[1]}' introuvable.`);
+      return true;
+    }
+    sendJson(res, 200, { customer });
+    return true;
+  }
+
   const customerDetailMatch = pathname.match(/^\/api\/v1\/customers\/([^/]+)$/);
   if (customerDetailMatch && method === 'GET') {
     const customerId = customerDetailMatch[1];
